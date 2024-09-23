@@ -17,6 +17,9 @@
                 <option value="cosmotown">Cosmotown</option>
                 <option value="dynadot">Dynadot</option>
                 <option value="spaceship">Spaceship.com</option>
+                <option value="namecheap">NameCheap - not supported yet</option>
+                <option value="porkbun">Porkbun - not supported yet</option>
+                
             </select>
         </div>
         <div class="form-group">
@@ -48,6 +51,9 @@ document.addEventListener('DOMContentLoaded', function () {
         event.preventDefault();
         dropArea.classList.remove('dragging');
         fileInput.files = event.dataTransfer.files;
+        if (fileInput.files.length > 0) {
+            dropArea.querySelector('p').textContent = fileInput.files[0].name;
+        }
     });
 
     dropArea.addEventListener('click', () => {
