@@ -27,8 +27,20 @@ class UploadController extends Controller
         $registrar = $request->input('registrar');
         $file = $request->file('file');
 
-        // Load the CSV document from a file path
-        $csv = Reader::createFromPath($file->getRealPath(), 'r');
+        // Read the file content
+        $filePath = $file->getRealPath();
+        $fileContent = file($filePath);
+
+        // Check and strip the first line if it contains the specific text
+        if (strpos($fileContent[0], 'Please note that renewal prices') !== false) {
+            array_shift($fileContent);
+        }
+
+        // Convert the modified content back to a string
+        $fileContentString = implode("", $fileContent);
+
+        // Load the CSV document from the string
+        $csv = Reader::createFromString($fileContentString);
         $csv->setHeaderOffset(0); // Set the header offset
 
         // Get the header
@@ -38,14 +50,8 @@ class UploadController extends Controller
         // Create a statement to process the CSV
         $stmt = (new Statement());
 
-        // Skip lines containing "Please note that renewal prices" for porkbun
-        if ($registrar === 'porkbun') {
-            $records = $stmt->process($csv)->filter(function ($record) {
-                return strpos($record['DOMAIN'], 'Please note that renewal prices') === false;
-            });
-        } else {
-            $records = $stmt->process($csv);
-        }
+        // Process the CSV records
+        $records = $stmt->process($csv);
 
         // Log the initial data count
         Log::info('Initial data count: ' . count($records));
