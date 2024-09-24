@@ -7,6 +7,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Domain;
 use Illuminate\Support\Facades\Log;
+use League\Csv\Reader;
+use League\Csv\Statement;
 
 class UploadController extends Controller
 {
@@ -21,49 +23,53 @@ class UploadController extends Controller
             'registrar' => 'required',
             'file' => 'required|file|mimes:csv,txt',
         ]);
-    
+
         $registrar = $request->input('registrar');
         $file = $request->file('file');
-    
-        $data = array_map('str_getcsv', file($file->getRealPath()));
 
-        // Log the initial data count
-        Log::info('Initial data count: ' . count($data));
+        // Load the CSV document from a file path
+        $csv = Reader::createFromPath($file->getRealPath(), 'r');
+        $csv->setHeaderOffset(0); // Set the header offset
+
+        // Get the header
+        $header = $csv->getHeader();
+        Log::info('CSV Header: ' . implode(', ', $header));
+
+        // Create a statement to process the CSV
+        $stmt = (new Statement());
 
         // Skip lines containing "Please note that renewal prices" for porkbun
         if ($registrar === 'porkbun') {
-            $data = array_filter($data, function($line) {
-                return strpos($line[0], 'Please note that renewal prices') === false;
+            $records = $stmt->process($csv)->filter(function ($record) {
+                return strpos($record['DOMAIN'], 'Please note that renewal prices') === false;
             });
-            // Log the data count after filtering
-            Log::info('Data count after filtering for porkbun: ' . count($data));
+        } else {
+            $records = $stmt->process($csv);
         }
 
-        $header = array_shift($data);
-        // Log the header
-        Log::info('CSV Header: ' . implode(', ', $header));
-    
+        // Log the initial data count
+        Log::info('Initial data count: ' . count($records));
+
         $newDomainsCount = 0; // Initialize counter for new domains
-    
-        foreach ($data as $row) {
-            $row = array_combine($header, $row);
+
+        foreach ($records as $row) {
             $domainData = $this->parseRow($registrar, $row);
-    
+
             if (!$domainData) {
                 Log::warning('Skipping row due to parsing error: ' . implode(', ', $row));
                 continue;
             }
-    
+
             if (Domain::where('domain', $domainData['domain'])->exists()) {
                 Log::info('Domain already exists: ' . $domainData['domain']);
                 continue;
             }
-    
+
             Domain::create($domainData);
             $newDomainsCount++; // Increment counter for each new domain added
             Log::info('New domain added: ' . $domainData['domain']);
         }
-    
+
         Log::info('Total new domains added: ' . $newDomainsCount);
         return redirect()->back()->with('success', "Domains uploaded successfully. New domains added: $newDomainsCount. Go <a href='/domains'>here</a> to view them.");
     }
