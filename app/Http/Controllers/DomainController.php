@@ -16,7 +16,8 @@ class DomainController extends Controller
 
         // Calculate days left for each domain
         foreach ($domains as $domain) {
-            $domain->days_left = (new \DateTime())->diff(new \DateTime($domain->exp_date))->days;
+            $expDate = (new \DateTime())->setTimestamp($domain->exp_date);
+            $domain->days_left = (new \DateTime())->diff($expDate)->days;
         }
 
         return view('domains.index', compact('domains', 'total')); // Pass total to view
