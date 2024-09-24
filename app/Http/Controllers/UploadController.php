@@ -41,6 +41,12 @@ class UploadController extends Controller
 
         // Load the CSV document from the string
         $csv = Reader::createFromString($fileContentString);
+
+        // Set the delimiter conditionally based on the registrar
+        if ($registrar === 'regery') {
+            $csv->setDelimiter(';');
+        }
+
         $csv->setHeaderOffset(0); // Set the header offset
 
         // Get the header
