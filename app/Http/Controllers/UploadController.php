@@ -66,6 +66,11 @@ class UploadController extends Controller
                 $expDate = $row['Expiration Date'];
                 $expTimestamp = strtotime($expDate);
                 break;
+            case 'namecheap':
+                $domain = $row['Domain Name'];
+                $expDate = $row['Domain expiration date'];
+                $expTimestamp = strtotime($expDate);
+                break;
             default:
                 return null;
         }
