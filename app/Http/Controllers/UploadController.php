@@ -25,12 +25,12 @@ class UploadController extends Controller
         $file = $request->file('file');
     
         $data = array_map('str_getcsv', file($file->getRealPath()));
-        $header = array_shift($data);
-    
-        // Skip the first line for porkbun
+
+        // Skip the first line for porkbun before we get header
         if ($registrar === 'porkbun') {
             array_shift($data);
         }
+        $header = array_shift($data);
     
         $newDomainsCount = 0; // Initialize counter for new domains
     
