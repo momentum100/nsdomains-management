@@ -19,7 +19,12 @@
                 <option value="spaceship">Spaceship.com</option>
                 <option value="namecheap">NameCheap - not supported yet</option>
                 <option value="porkbun">Porkbun - not supported yet</option>
-                
+                <option value="regery">Regery</option>
+                <option value="gandi">Gandi</option>
+                <option value="namebright">NameBright</option>
+                <option value="godaddy">GoDaddy</option>
+                <option value="sav">SAV</option>
+                <option value="namesilo">NameSilo</option>
             </select>
         </div>
         <div class="form-group">
