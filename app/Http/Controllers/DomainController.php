@@ -6,19 +6,16 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Domain;
+use Illuminate\Support\Facades\DB;
 
 class DomainController extends Controller
 {
     public function index()
     {
-        $domains = Domain::orderBy('exp_date')->get();
+        $domains = Domain::select('*', DB::raw('DATEDIFF(FROM_UNIXTIME(exp_date), NOW()) as days_left'))
+                         ->orderBy('exp_date')
+                         ->get();
         $total = $domains->count(); // Calculate total number of domains
-
-        // Calculate days left for each domain
-        foreach ($domains as $domain) {
-            $expDate = (new \DateTime())->setTimestamp($domain->exp_date);
-            $domain->days_left = (new \DateTime())->diff($expDate)->days;
-        }
 
         return view('domains.index', compact('domains', 'total')); // Pass total to view
     }
