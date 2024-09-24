@@ -11,7 +11,7 @@
        class="btn btn-primary mb-3">Upload</a> <!-- Added button -->
     <p>Total: {{ $total }} domains</p> <!-- Display total number of domains -->
     <table class="table">
-            <thead>
+        <thead>
             <tr>
                 <th>Domain</th>
                 <th>Expiration Date</th>
@@ -21,14 +21,14 @@
         </thead>
         <tbody>
             @foreach($domains as $domain)
-            <tr>
-                <td>{{ $domain->domain }}</td>
-                <td>{{ date('Y-m-d H:i:s', strtotime($domain->exp_date)) }}</td>
-                <td>{{ $domain->registrar }}</td>
-                <td>{{ $domain->days_left }}</td> <!-- Display days left -->
-            </tr>
+                <tr>
+                    <td>{{ $domain->domain }}</td>
+                    <td>{{ date('Y-m-d H:i:s', $domain->exp_date) }}</td>
+                    <td>{{ $domain->registrar }}</td>
+                    <td>{{ $domain->days_left }}</td> <!-- Display days left -->
+                </tr>
             @endforeach
         </tbody>
     </table>
-</div>
+    </div>
 @endsection
