@@ -13,6 +13,12 @@ class DomainController extends Controller
     {
         $domains = Domain::orderBy('exp_date')->get();
         $total = $domains->count(); // Calculate total number of domains
+
+        // Calculate days left for each domain
+        foreach ($domains as $domain) {
+            $domain->days_left = (new \DateTime())->diff(new \DateTime($domain->exp_date))->days;
+        }
+
         return view('domains.index', compact('domains', 'total')); // Pass total to view
     }
 
