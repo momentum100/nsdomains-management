@@ -113,6 +113,11 @@ class UploadController extends Controller
                 $expDate = $row['Expiration Date'];
                 $expTimestamp = strtotime($expDate);
                 break;
+            case 'godaddy':
+                $domain = $row['Domain Name'];
+                $expDate = $row['Expiration Date'];
+                $expTimestamp = strtotime($expDate);
+                break;
             default:
                 return null;
         }
