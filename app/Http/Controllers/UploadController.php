@@ -27,6 +27,11 @@ class UploadController extends Controller
         $data = array_map('str_getcsv', file($file->getRealPath()));
         $header = array_shift($data);
     
+        // Skip the first line for porkbun
+        if ($registrar === 'porkbun') {
+            array_shift($data);
+        }
+    
         $newDomainsCount = 0; // Initialize counter for new domains
     
         foreach ($data as $row) {
@@ -69,6 +74,11 @@ class UploadController extends Controller
             case 'namecheap':
                 $domain = $row['Domain Name'];
                 $expDate = $row['Domain expiration date'];
+                $expTimestamp = strtotime($expDate);
+                break;
+            case 'porkbun':
+                $domain = $row['DOMAIN'];
+                $expDate = $row['EXPIRE DATE'];
                 $expTimestamp = strtotime($expDate);
                 break;
             default:
