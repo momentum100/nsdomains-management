@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Domain;
+use Illuminate\Support\Facades\Log;
 
 class UploadController extends Controller
 {
@@ -26,11 +27,21 @@ class UploadController extends Controller
     
         $data = array_map('str_getcsv', file($file->getRealPath()));
 
-        // Skip the first line for porkbun before we get header
+        // Log the initial data count
+        Log::info('Initial data count: ' . count($data));
+
+        // Skip lines containing "Please note that renewal prices" for porkbun
         if ($registrar === 'porkbun') {
-            array_shift($data);
+            $data = array_filter($data, function($line) {
+                return strpos($line[0], 'Please note that renewal prices') === false;
+            });
+            // Log the data count after filtering
+            Log::info('Data count after filtering for porkbun: ' . count($data));
         }
+
         $header = array_shift($data);
+        // Log the header
+        Log::info('CSV Header: ' . implode(', ', $header));
     
         $newDomainsCount = 0; // Initialize counter for new domains
     
@@ -39,17 +50,21 @@ class UploadController extends Controller
             $domainData = $this->parseRow($registrar, $row);
     
             if (!$domainData) {
+                Log::warning('Skipping row due to parsing error: ' . implode(', ', $row));
                 continue;
             }
     
             if (Domain::where('domain', $domainData['domain'])->exists()) {
+                Log::info('Domain already exists: ' . $domainData['domain']);
                 continue;
             }
     
             Domain::create($domainData);
             $newDomainsCount++; // Increment counter for each new domain added
+            Log::info('New domain added: ' . $domainData['domain']);
         }
     
+        Log::info('Total new domains added: ' . $newDomainsCount);
         return redirect()->back()->with('success', "Domains uploaded successfully. New domains added: $newDomainsCount. Go <a href='/domains'>here</a> to view them.");
     }
 
