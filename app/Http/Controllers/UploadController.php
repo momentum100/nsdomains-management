@@ -108,6 +108,11 @@ class UploadController extends Controller
                 $expDate = $row['EXPIRE DATE'];
                 $expTimestamp = strtotime($expDate);
                 break;
+            case 'namebright':
+                $domain = $row['Domain'];
+                $expDate = $row['Expiration Date'];
+                $expTimestamp = strtotime($expDate);
+                break;
             default:
                 return null;
         }
