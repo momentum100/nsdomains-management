@@ -9,7 +9,7 @@
        class="btn btn-success mb-3">Export CSV</a>
     <a href="{{ url('/upload') }}"
        class="btn btn-primary mb-3">Upload</a> <!-- Added button -->
-    <p>Total: {{ $total }} domains</p> <!-- Display total number of domains -->
+<!--    <p>Total: {{ $total }} domains</p> <!-- Display total number of domains -->
 
     @if($total > 0)
         <table class="table">
