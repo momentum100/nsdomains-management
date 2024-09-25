@@ -8,6 +8,8 @@
     <a href="{{ route('domains.export') }}" class="btn btn-success mb-3">Export CSV</a>
     <a href="{{ url('/upload') }}" class="btn btn-primary mb-3">Upload</a>
     <p>Total: {{ $total }} domains</p>
+    <p>Active: {{ $active }} domains</p>
+    <p>Sold: {{ $sold }} domains</p>
 
     <div class="mb-3">
         <a href="{{ route('domains.index', ['status' => 'ACTIVE']) }}" class="btn btn-info">Active</a>

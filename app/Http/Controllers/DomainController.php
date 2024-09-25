@@ -18,9 +18,11 @@ class DomainController extends Controller
                          ->orderBy('exp_date')
                          ->get();
         $total = $domains->count();
+        $active = Domain::where('status', 'ACTIVE')->count();
+        $sold = Domain::where('status', 'SOLD')->count();
         \Log::info('Total domains: ' . $total);
 
-        return view('domains.index', compact('domains', 'total', 'status')); // Pass status to view
+        return view('domains.index', compact('domains', 'total', 'status', 'active', 'sold')); // Pass status and counts to view
     }
 
     public function exportCsv()
