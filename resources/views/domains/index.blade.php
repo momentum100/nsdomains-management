@@ -5,11 +5,14 @@
 @section('content')
 <div class="container">
     <h2>Domains</h2>
-    <a href="{{ route('domains.export') }}"
-       class="btn btn-success mb-3">Export CSV</a>
-    <a href="{{ url('/upload') }}"
-       class="btn btn-primary mb-3">Upload</a> 
-      <p>Total: {{ $total }} domains</p> 
+    <a href="{{ route('domains.export') }}" class="btn btn-success mb-3">Export CSV</a>
+    <a href="{{ url('/upload') }}" class="btn btn-primary mb-3">Upload</a>
+    <p>Total: {{ $total }} domains</p>
+
+    <div class="mb-3">
+        <a href="{{ route('domains.index', ['status' => 'ACTIVE']) }}" class="btn btn-info">Active</a>
+        <a href="{{ route('domains.index', ['status' => 'SOLD']) }}" class="btn btn-secondary">Sold</a>
+    </div>
 
     @if($total > 0)
         <table class="table">
@@ -18,8 +21,8 @@
                     <th>Domain</th>
                     <th>Expiration Date</th>
                     <th>Registrar</th>
-                    <th>Days Left</th> <!-- New column for days left -->
-                    <th>Actions</th> <!-- New column for actions -->
+                    <th>Days Left</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -28,14 +31,14 @@
                         <td>{{ $domain->domain }}</td>
                         <td>{{ date('Y-m-d H:i:s', $domain->exp_date) }}</td>
                         <td>{{ $domain->registrar }}</td>
-                        <td>{{ $domain->days_left }}</td> <!-- Display days left -->
+                        <td>{{ $domain->days_left }}</td>
                         <td>
                             <form action="{{ route('domains.destroy', $domain->id) }}" method="POST">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="btn btn-danger">Delete</button>
+                                <button type="submit" class="btn btn-danger">Mark as Sold</button>
                             </form>
-                        </td> <!-- Delete button -->
+                        </td>
                     </tr>
                 @endforeach
             </tbody>

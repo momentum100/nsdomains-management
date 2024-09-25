@@ -10,16 +10,17 @@ use Illuminate\Support\Facades\DB;
 
 class DomainController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $status = $request->query('status', 'ACTIVE'); // Get status from query, default to ACTIVE
         $domains = Domain::select('*', DB::raw('DATEDIFF(FROM_UNIXTIME(exp_date), NOW()) as days_left'))
+                         ->where('status', $status) // Filter by status
                          ->orderBy('exp_date')
                          ->get();
-        $total = $domains->count(); // Calculate total number of domains
+        $total = $domains->count();
         \Log::info('Total domains: ' . $total);
-        // Removed unnecessary assignment to $total
 
-        return view('domains.index', compact('domains', 'total')); // Pass total to view
+        return view('domains.index', compact('domains', 'total', 'status')); // Pass status to view
     }
 
     public function exportCsv()
@@ -51,8 +52,9 @@ class DomainController extends Controller
     public function destroy($id)
     {
         $domain = Domain::findOrFail($id);
-        $domain->delete();
+        $domain->status = 'SOLD'; // Change status to SOLD
+        $domain->save();
 
-        return redirect()->route('domains.index')->with('success', 'Domain deleted successfully');
+        return redirect()->route('domains.index')->with('success', 'Domain marked as sold successfully');
     }
 }
