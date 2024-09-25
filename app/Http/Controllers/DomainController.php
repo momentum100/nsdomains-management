@@ -45,4 +45,12 @@ class DomainController extends Controller
 
         return response()->stream($callback, 200, $headers);
     }
+
+    public function destroy($id)
+    {
+        $domain = Domain::findOrFail($id);
+        $domain->delete();
+
+        return redirect()->route('domains.index')->with('success', 'Domain deleted successfully');
+    }
 }
