@@ -1,34 +1,23 @@
 <?php
+// database/migrations/2024_09_24_000000_add_status_to_domains_table.php
 
-// app/Http/Controllers/DomainController.php
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
-namespace App\Http\Controllers;
-
-use Illuminate\Http\Request;
-use App\Models\Domain;
-use Illuminate\Support\Facades\DB;
-
-class DomainController extends Controller
+class AddStatusToDomainsTable extends Migration
 {
-    public function index(Request $request)
+    public function up()
     {
-        $status = $request->query('status', 'ACTIVE'); // Get status from query, default to ACTIVE
-        $domains = Domain::select('*', DB::raw('DATEDIFF(FROM_UNIXTIME(exp_date), NOW()) as days_left'))
-                         ->where('status', $status) // Filter by status
-                         ->orderBy('exp_date')
-                         ->get();
-        $total = $domains->count();
-        \Log::info('Total domains: ' . $total);
-
-        return view('domains.index', compact('domains', 'total', 'status')); // Pass status to view
+        Schema::table('domains', function (Blueprint $table) {
+            $table->string('status')->default('ACTIVE')->after('registrar'); // Add status column
+        });
     }
 
-    public function destroy($id)
+    public function down()
     {
-        $domain = Domain::findOrFail($id);
-        $domain->status = 'SOLD'; // Change status to SOLD
-        $domain->save();
-
-        return redirect()->route('domains.index')->with('success', 'Domain marked as sold successfully');
+        Schema::table('domains', function (Blueprint $table) {
+            $table->dropColumn('status');
+        });
     }
 }
