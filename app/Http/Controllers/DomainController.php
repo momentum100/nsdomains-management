@@ -19,6 +19,9 @@ class DomainController extends Controller
         \Log::info('Total domains: ' . $total);
         $total=1;
 
+
+        
+
         return view('domains.index', compact('domains', 'total')); // Pass total to view
     }
 
