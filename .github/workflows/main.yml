@@ -21,3 +21,9 @@ jobs:
     - name: Pull latest code from GitHub on the server
       run: |
         ssh -o StrictHostKeyChecking=no ubuntu@148.113.138.32 'cd /var/www/nsdomains-management && git pull'
+
+    - name: Send Telegram notification
+      run: |
+        curl -s -X POST https://api.telegram.org/bot1790397670:AAFsAoJ5Qju9V4phdq5cflhJF938uS7t2QI/sendMessage \
+        -d chat_id=-4188687896 \
+        -d text="🚀 The latest code has been successfully pulled on the server!"
