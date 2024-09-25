@@ -17,10 +17,7 @@ class DomainController extends Controller
                          ->get();
         $total = $domains->count(); // Calculate total number of domains
         \Log::info('Total domains: ' . $total);
-        $total=1;
-
-
-        
+        // Removed unnecessary assignment to $total
 
         return view('domains.index', compact('domains', 'total')); // Pass total to view
     }
