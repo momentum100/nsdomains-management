@@ -55,6 +55,7 @@ class DomainController extends Controller
     {
         $domain = Domain::findOrFail($id);
         $domain->status = 'SOLD'; // Change status to SOLD
+        $domain->updated_at = now(); // Update the updated_at timestamp
         $domain->save();
 
         return redirect()->route('domains.index')->with('success', 'Domain marked as sold successfully');
