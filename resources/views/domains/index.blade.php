@@ -10,25 +10,38 @@
     <a href="{{ url('/upload') }}"
        class="btn btn-primary mb-3">Upload</a> <!-- Added button -->
     <p>Total: {{ $total }} domains</p> <!-- Display total number of domains -->
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Domain</th>
-                <th>Expiration Date</th>
-                <th>Registrar</th>
-                <th>Days Left</th> <!-- New column for days left -->
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($domains as $domain)
+
+    @if($total > 0)
+        <table class="table">
+            <thead>
                 <tr>
-                    <td>{{ $domain->domain }}</td>
-                    <td>{{ date('Y-m-d H:i:s', $domain->exp_date) }}</td>
-                    <td>{{ $domain->registrar }}</td>
-                    <td>{{ $domain->days_left }}</td> <!-- Display days left -->
+                    <th>Domain</th>
+                    <th>Expiration Date</th>
+                    <th>Registrar</th>
+                    <th>Days Left</th> <!-- New column for days left -->
+                    <th>Actions</th> <!-- New column for actions -->
                 </tr>
-            @endforeach
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach($domains as $domain)
+                    <tr>
+                        <td>{{ $domain->domain }}</td>
+                        <td>{{ date('Y-m-d H:i:s', $domain->exp_date) }}</td>
+                        <td>{{ $domain->registrar }}</td>
+                        <td>{{ $domain->days_left }}</td> <!-- Display days left -->
+                        <td>
+                            <form action="{{ route('domains.destroy', $domain->id) }}" method="POST">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-danger">Delete</button>
+                            </form>
+                        </td> <!-- Delete button -->
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @else
+        <p>No domains found.</p>
+    @endif
 </div>
 @endsection

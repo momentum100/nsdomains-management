@@ -16,6 +16,7 @@ class DomainController extends Controller
                          ->orderBy('exp_date')
                          ->get();
         $total = $domains->count(); // Calculate total number of domains
+        \Log::info('Total domains: ' . $total);
 
         return view('domains.index', compact('domains', 'total')); // Pass total to view
     }
