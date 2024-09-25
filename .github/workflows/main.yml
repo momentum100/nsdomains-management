@@ -1,0 +1,23 @@
+name: Auto Deploy on Push
+
+on:
+  push:
+    branches:
+      - main  # Adjust this if your deployment branch is different
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout the repository
+      uses: actions/checkout@v2
+
+    - name: Install SSH key for server access
+      uses: webfactory/ssh-agent@v0.5.3
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Pull latest code from GitHub on the server
+      run: |
+        ssh -o StrictHostKeyChecking=no ubuntu@148.113.138.32 'cd /var/www/nsdomains-management && git pull'
