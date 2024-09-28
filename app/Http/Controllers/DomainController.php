@@ -60,4 +60,13 @@ class DomainController extends Controller
 
         return redirect()->route('domains.index')->with('success', 'Domain marked as sold successfully');
     }
+    public function bulkDestroy(Request $request)
+    {
+        \Log::info('Bulk delete request received', $request->all()); // Add this line for debugging
+        $domainIds = $request->input('domains');
+        if ($domainIds) {
+            Domain::whereIn('id', $domainIds)->delete();
+        }
+        return redirect()->route('domains.index')->with('success', 'Selected domains deleted successfully.');
+    }
 }
