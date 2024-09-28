@@ -27,8 +27,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/domains', [DomainController::class, 'index'])->name('domains.index');
     Route::get('/domains/export', [DomainController::class, 'exportCsv'])->name('domains.export');
-    Route::delete('/domains/{id}', [DomainController::class, 'destroy'])->name('domains.destroy');
-    Route::delete('/domains/bulk-destroy', [DomainController::class, 'bulkDestroy'])->name('domains.bulkDestroy');
+    Route::delete('/domains/', [DomainController::class, 'destroy'])->name('domains.destroy');
+
 });
 
 // Authentication routes

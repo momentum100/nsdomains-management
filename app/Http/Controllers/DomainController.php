@@ -51,22 +51,30 @@ class DomainController extends Controller
         return response()->stream($callback, 200, $headers);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request)
     {
-        $domain = Domain::findOrFail($id);
-        $domain->status = 'SOLD'; // Change status to SOLD
-        $domain->updated_at = now(); // Update the updated_at timestamp
-        $domain->save();
-
-        return redirect()->route('domains.index')->with('success', 'Domain marked as sold successfully');
+        \Log::info('Bulk mark as sold request received', $request->all());
+        $domainIds = $request->input('domains');
+        if ($domainIds) {
+            Domain::whereIn('id', $domainIds)
+                ->update([
+                    'status' => 'SOLD',
+                    'updated_at' => now()
+                ]);
+        }
+        return redirect()->route('domains.index')->with('success', 'Selected domains marked as sold successfully.');
     }
     public function bulkDestroy(Request $request)
     {
-        \Log::info('Bulk delete request received', $request->all()); // Add this line for debugging
+        \Log::info('Bulk mark as sold request received', $request->all());
         $domainIds = $request->input('domains');
         if ($domainIds) {
-            Domain::whereIn('id', $domainIds)->delete();
+            Domain::whereIn('id', $domainIds)
+                ->update([
+                    'status' => 'SOLD',
+                    'updated_at' => now()
+                ]);
         }
-        return redirect()->route('domains.index')->with('success', 'Selected domains deleted successfully.');
+        return redirect()->route('domains.index')->with('success', 'Selected domains marked as sold successfully.');
     }
 }
