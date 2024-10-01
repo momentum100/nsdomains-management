@@ -20,9 +20,13 @@ class DomainController extends Controller
         $total = $domains->count();
         $active = Domain::where('status', 'ACTIVE')->count();
         $sold = Domain::where('status', 'SOLD')->count();
+        $activeDomainsByRegistrar = Domain::select('registrar', DB::raw('count(*) as total'))
+                                          ->where('status', 'ACTIVE')
+                                          ->groupBy('registrar')
+                                          ->get();
         \Log::info('Total domains: ' . $total);
 
-        return view('domains.index', compact('domains', 'total', 'status', 'active', 'sold')); // Pass status and counts to view
+        return view('domains.index', compact('domains', 'total', 'status', 'active', 'sold', 'activeDomainsByRegistrar')); // Pass status and counts to view
     }
 
     public function exportCsv()
@@ -78,5 +82,15 @@ class DomainController extends Controller
                 ]);
         }
         return redirect()->route('domains.index')->with('success', 'Selected domains marked as sold successfully.');
+    }
+
+    public function getActiveDomainsByRegistrar()
+    {
+        $registrarCounts = Domain::select('registrar', DB::raw('count(*) as total'))
+                                 ->where('status', 'ACTIVE')
+                                 ->groupBy('registrar')
+                                 ->get();
+
+        return response()->json($registrarCounts);
     }
 }

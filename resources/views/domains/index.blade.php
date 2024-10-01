@@ -14,6 +14,15 @@
         <a href="{{ route('domains.index', ['status' => 'SOLD']) }}" class="btn btn-secondary">Sold</a>
     </div>
 
+    <div class="mb-3">
+        <h4>Active Domains by Registrar</h4>
+        <ul>
+            @foreach($activeDomainsByRegistrar as $registrar)
+                <li>{{ $registrar->registrar }}: {{ $registrar->total }} domains</li>
+            @endforeach
+        </ul>
+    </div>
+
     @if($total > 0)
         <form id="bulk-action-form" action="{{ route('domains.destroy') }}" method="POST">
             @csrf
@@ -26,7 +35,6 @@
                         <th>Expiration Date</th>
                         <th>Registrar</th>
                         <th>Days Left</th>
-          
                     </tr>
                 </thead>
                 <tbody>
@@ -37,7 +45,6 @@
                             <td>{{ date('Y-m-d H:i:s', $domain->exp_date) }}</td>
                             <td>{{ $domain->registrar }}</td>
                             <td>{{ $domain->days_left }}</td>
-
                         </tr>
                     @endforeach
                 </tbody>
