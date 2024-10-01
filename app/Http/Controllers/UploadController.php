@@ -134,8 +134,24 @@ class UploadController extends Controller
                 $expDate = $row['Exp Date'];
                 $expTimestamp = strtotime($expDate);
                 break;
+            case 'name.com':
+                $domain = $row['Domain Name'] ?? null;
+                $expDate = $row['Expire Date'] ?? null;
+                $expTimestamp = $expDate ? strtotime($expDate) : null;
+                break;
             default:
                 return null;
+        }
+
+        // Ensure the domain and exp_date are set correctly
+        if (empty($domain)) {
+            Log::warning('Parsing error: Domain is missing', ['row' => $row]);
+            return null;
+        }
+
+        if (empty($expTimestamp)) {
+            Log::warning('Parsing error: Expiration date is invalid or missing', ['row' => $row]);
+            return null;
         }
 
         return [
