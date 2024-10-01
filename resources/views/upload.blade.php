@@ -17,14 +17,15 @@
                 <option value="cosmotown">Cosmotown</option>
                 <option value="dynadot">Dynadot</option>
                 <option value="spaceship">Spaceship.com</option>
-                <option value="namecheap">NameCheap - not supported yet</option>
-                <option value="porkbun">Porkbun - not supported yet</option>
+                <option value="namecheap">NameCheap</option>
+                <option value="porkbun">Porkbun</option>
                 <option value="regery">Regery</option>
                 <option value="gandi">Gandi</option>
                 <option value="namebright">NameBright</option>
                 <option value="godaddy">GoDaddy</option>
                 <option value="sav">SAV</option>
                 <option value="namesilo">NameSilo</option>
+                <option value="namecom">Name.com</option>
             </select>
         </div>
         <div class="form-group">
