@@ -134,7 +134,7 @@ class UploadController extends Controller
                 $expDate = $row['Exp Date'];
                 $expTimestamp = strtotime($expDate);
                 break;
-            case 'name.com':
+            case 'namecom': // Updated to match the input registrar
                 $domain = $row['Domain Name'] ?? null;
                 $expDate = $row['Expire Date'] ?? null;
                 $expTimestamp = $expDate ? strtotime($expDate) : null;
