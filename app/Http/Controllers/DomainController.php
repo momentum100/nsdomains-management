@@ -27,7 +27,9 @@ class DomainController extends Controller
 
     public function exportCsv()
     {
-        $domains = Domain::orderBy('exp_date')->get();
+        $domains = Domain::where('status', 'ACTIVE') // Filter by ACTIVE status
+                         ->orderBy('exp_date')
+                         ->get();
         $filename = "domains_" . date('Ymd_His') . ".csv";
         $headers = [
             'Content-Type' => 'text/csv',
