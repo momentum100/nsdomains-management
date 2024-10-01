@@ -5,22 +5,26 @@
     <h2>Domains</h2>
     <a href="{{ route('domains.export') }}" class="btn btn-success mb-3">Export CSV</a>
     <a href="{{ url('/upload') }}" class="btn btn-primary mb-3">Upload</a>
-    <p>Total: {{ $total }} domains</p>
-    <p>Active: {{ $active }} domains</p>
-    <p>Sold: {{ $sold }} domains</p>
+    
+    <div class="d-flex justify-content-between">
+        <div>
+            <p>Total: {{ $total }} domains</p>
+            <p>Active: {{ $active }} domains</p>
+            <p>Sold: {{ $sold }} domains</p>
+        </div>
+        <div>
+            <h4>Active Domains by Registrar</h4>
+            <ul>
+                @foreach($activeDomainsByRegistrar as $registrar)
+                    <li>{{ $registrar->registrar }}: {{ $registrar->total }} domains</li>
+                @endforeach
+            </ul>
+        </div>
+    </div>
 
     <div class="mb-3">
         <a href="{{ route('domains.index', ['status' => 'ACTIVE']) }}" class="btn btn-info">Active</a>
         <a href="{{ route('domains.index', ['status' => 'SOLD']) }}" class="btn btn-secondary">Sold</a>
-    </div>
-
-    <div class="mb-3">
-        <h4>Active Domains by Registrar</h4>
-        <ul>
-            @foreach($activeDomainsByRegistrar as $registrar)
-                <li>{{ $registrar->registrar }}: {{ $registrar->total }} domains</li>
-            @endforeach
-        </ul>
     </div>
 
     @if($total > 0)
