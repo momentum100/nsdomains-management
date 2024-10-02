@@ -36,7 +36,7 @@
         </form>
     </div>
 
-    <div class="mb-3">
+    <div class="mb-3 mt-3">
         <a href="{{ route('domains.index', ['status' => 'ACTIVE']) }}" class="btn btn-info mr-2">Active</a>
         <a href="{{ route('domains.index', ['status' => 'SOLD']) }}" class="btn btn-secondary">Sold</a>
     </div>
