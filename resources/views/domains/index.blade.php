@@ -22,6 +22,20 @@
         </div>
     </div>
 
+    <!-- Collapsible Textarea and Submit Button -->
+    <button class="btn btn-info mb-3" type="button" data-toggle="collapse" data-target="#collapsibleTextarea" aria-expanded="false" aria-controls="collapsibleTextarea">
+        Bulk Mark as Sold
+    </button>
+    <div class="collapse" id="collapsibleTextarea">
+        <form action="{{ route('domains.markAsSold') }}" method="POST">
+            @csrf
+            <div class="form-group">
+                <textarea class="form-control" name="domains" rows="5" placeholder="Enter domain names, one per line"></textarea>
+            </div>
+            <button type="submit" class="btn btn-warning">Submit</button>
+        </form>
+    </div>
+
     <div class="mb-3">
         <a href="{{ route('domains.index', ['status' => 'ACTIVE']) }}" class="btn btn-info">Active</a>
         <a href="{{ route('domains.index', ['status' => 'SOLD']) }}" class="btn btn-secondary">Sold</a>

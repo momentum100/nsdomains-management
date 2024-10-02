@@ -93,4 +93,21 @@ class DomainController extends Controller
 
         return response()->json($registrarCounts);
     }
+
+    public function markAsSold(Request $request)
+    {
+        $domains = explode("\n", $request->input('domains'));
+        $domains = array_map('trim', $domains);
+        $domains = array_filter($domains);
+
+        if (!empty($domains)) {
+            Domain::whereIn('domain', $domains)
+                ->update([
+                    'status' => 'SOLD',
+                    'updated_at' => now()
+                ]);
+        }
+
+        return redirect()->route('domains.index')->with('success', 'Domains marked as sold successfully.');
+    }
 }

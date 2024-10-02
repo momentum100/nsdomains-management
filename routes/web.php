@@ -28,7 +28,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/domains', [DomainController::class, 'index'])->name('domains.index');
     Route::get('/domains/export', [DomainController::class, 'exportCsv'])->name('domains.export');
     Route::delete('/domains/', [DomainController::class, 'destroy'])->name('domains.destroy');
-
+    Route::post('/domains/mark-as-sold', [DomainController::class, 'markAsSold'])->name('domains.markAsSold');
 });
 
 // Authentication routes
