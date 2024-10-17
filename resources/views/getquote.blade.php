@@ -9,8 +9,12 @@
             <label for="domains">Enter Domain Names (one per line):</label>
             <textarea class="form-control" id="domains" name="domains" rows="10" placeholder="example.com
 example.net
-example.org">@foreach($results as $result){{ $result->domain }}@if(!$loop->last)
-@endif @endforeach</textarea>
+example.org">
+@foreach($results as $result)
+{{ $result->domain }}@if(!$loop->last)
+@endif
+@endforeach
+</textarea>
         </div>
         <button type="button" class="btn btn-secondary mt-3" id="clean-button">Clean</button>
         <button type="submit" class="btn btn-primary mt-3" id="send-button">Send</button>
