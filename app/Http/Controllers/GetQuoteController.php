@@ -127,6 +127,7 @@ class GetQuoteController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $results,
+            'uuid' => $uuid,
             'total_price' => number_format($totalPrice, 2),
             'link' => url("/getquote/{$uuid}"), // Generate a link to the results
         ]);
