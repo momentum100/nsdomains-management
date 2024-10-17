@@ -39,5 +39,5 @@ Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name
 
 // Add these routes outside the existing authenticated middleware group
 
-Route::get('/getquote', [App\Http\Controllers\GetQuoteController::class, 'showForm'])->name('getquote.form');
-Route::post('/getquote', [App\Http\Controllers\GetQuoteController::class, 'getQuote'])->name('getquote.process');
+Route::get('/getquote/{uuid?}', [GetQuoteController::class, 'showForm'])->name('getquote.form');
+Route::post('/getquote', [GetQuoteController::class, 'getQuote'])->name('getquote.process');

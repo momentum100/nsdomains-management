@@ -9,14 +9,39 @@
             <label for="domains">Enter Domain Names (one per line):</label>
             <textarea class="form-control" id="domains" name="domains" rows="10" placeholder="example.com
 example.net
-example.org"></textarea>
+example.org">@foreach($results as $result){{ $result->domain }}@if(!$loop->last)
+@endif@endforeach</textarea>
         </div>
         <button type="button" class="btn btn-secondary mt-3" id="clean-button">Clean</button>
         <button type="submit" class="btn btn-primary mt-3" id="send-button">Send</button>
     </form>
 
     <div id="results" class="mt-5">
-        <!-- Results will be displayed here -->
+        @if($results->isNotEmpty())
+            <h3>Previous Quotes:</h3>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Domain</th>
+                        <th>Registrant</th>
+                        <th>Expiration Date</th>
+                        <th>Days Left</th>
+                        <th>Price ($)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($results as $result)
+                        <tr>
+                            <td>{{ $result->domain }}</td>
+                            <td>{{ $result->registrant }}</td>
+                            <td>{{ $result->expiration_date }}</td>
+                            <td>{{ $result->days_left }}</td>
+                            <td>{{ $result->price }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endif
     </div>
 </div>
 

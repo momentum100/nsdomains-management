@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
 use Iodev\Whois\Factory;
+use Illuminate\Support\Str;
+use App\Models\DomainResult;
 
 class GetQuoteController extends Controller
 {
@@ -14,9 +16,15 @@ class GetQuoteController extends Controller
      *
      * @return \Illuminate\View\View
      */
-    public function showForm()
+    public function showForm($uuid = null)
     {
-        return view('getquote');
+        $results = [];
+
+        if ($uuid) {
+            $results = DomainResult::where('uuid', $uuid)->get();
+        }
+
+        return view('getquote', ['results' => $results]);
     }
 
     /**
@@ -50,6 +58,8 @@ class GetQuoteController extends Controller
 
         // Initialize WHOIS client
         $whois = Factory::get()->createWhois();
+
+        $uuid = Str::uuid(); // Generate a UUID for this set of results
 
         foreach ($domains as $domain) {
             // Basic domain validation
@@ -89,12 +99,23 @@ class GetQuoteController extends Controller
                 'days_left' => $daysLeft >= 0 ? $daysLeft : 0,
                 'price' => number_format($price, 2),
             ];
+
+            // Save each result to the database
+            DomainResult::create([
+                'uuid' => $uuid,
+                'domain' => $domain,
+                'registrant' => $whoisData['registrant'] ?? 'N/A',
+                'expiration_date' => $expirationDate->toDateString(),
+                'days_left' => $daysLeft >= 0 ? $daysLeft : 0,
+                'price' => $price,
+            ]);
         }
 
         return response()->json([
             'status' => 'success',
             'data' => $results,
             'total_price' => number_format($totalPrice, 2),
+            'link' => url("/results/{$uuid}"), // Generate a link to the results
         ]);
     }
 
@@ -156,5 +177,16 @@ class GetQuoteController extends Controller
                 return 1.75; // Half of 3.5
             }
         }
+    }
+
+    public function showResults($uuid)
+    {
+        $results = DomainResult::where('uuid', $uuid)->get();
+
+        if ($results->isEmpty()) {
+            return response()->json(['status' => 'error', 'message' => 'No results found.'], 404);
+        }
+
+        return view('results', ['results' => $results]);
     }
 }
