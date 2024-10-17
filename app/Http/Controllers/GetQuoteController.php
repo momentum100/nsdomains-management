@@ -117,10 +117,10 @@ class GetQuoteController extends Controller
             DomainResult::create([
                 'uuid' => $uuid,
                 'domain' => $domain,
-                'registrant' => $whoisData['registrant'] ?? 'N/A',
                 'expiration_date' => $expirationDate->toDateString(),
                 'days_left' => $daysLeft >= 0 ? $daysLeft : 0,
                 'price' => $price,
+                'registrar' => $whoisData['registrar'] ?? 'N/A', // Save registrar information
             ]);
         }
 
@@ -149,9 +149,12 @@ class GetQuoteController extends Controller
                 \Log::info("WHOIS info for domain {$domain}: ", (array) $info);
 
                 $expirationDate = $info->expirationDate;
+                $registrar = $info->registrar ?? 'N/A'; // Extract registrar information
+
                 return [
                     'registrant' => $info->registrantOrganization ?? 'N/A',
                     'expiration_date' => $expirationDate ? Carbon::parse($expirationDate)->format('Y-m-d') : null,
+                    'registrar' => $registrar, // Include registrar in the returned data
                 ];
             }
         } catch (\Exception $e) {
