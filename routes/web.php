@@ -18,7 +18,7 @@ use App\Http\Controllers\GetQuoteController;
 */
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect('/domains');
 });
 
 // Routes that require authentication
