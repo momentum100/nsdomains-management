@@ -29,10 +29,11 @@ example.org">
                     <tr>
                         <th>Domain</th>
                         <th>Registrar</th>
+                        <th>New Registration Price ($)</th> <!-- New column header -->
                         <th>Expiration Date</th>
                         <th>Days Left</th>
                         <th>Price ($)</th>
-                        <th>New Registration Price ($)</th> <!-- New column header -->
+                        
                     </tr>
                 </thead>
                 <tbody>
@@ -40,10 +41,11 @@ example.org">
                         <tr>
                             <td>{{ $result->domain }}</td>
                             <td>{{ $result->registrar }}</td>
+                            <td>{{ $result->newReg }}</td> <!-- New column data -->
                             <td>{{ $result->expiration_date }}</td>
                             <td>{{ $result->days_left }}</td>
                             <td>{{ $result->price }}</td>
-                            <td>{{ $result->newReg }}</td> <!-- New column data -->
+                            
                         </tr>
                     @endforeach
                 </tbody>
