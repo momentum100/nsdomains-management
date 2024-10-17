@@ -19,13 +19,25 @@ class GetQuoteController extends Controller
     public function showForm($uuid = null)
     {
         $results = collect(); // Initialize as an empty Collection
+        $totalPrice = 0;
+        $createdAt = null;
 
         if ($uuid) {
             // Fetch the results using the UUID from DomainResult
             $results = DomainResult::where('uuid', $uuid)->get();
+
+            // Calculate total price if results are found
+            if (!$results->isEmpty()) {
+                $totalPrice = $results->sum('price');
+                $createdAt = $results->first()->created_at; // Get the creation time of the first result
+            }
         }
 
-        return view('getquote', compact('results'));
+        return view('getquote', [
+            'results' => $results,
+            'total_price' => number_format($totalPrice, 2),
+            'created_at' => $createdAt ? $createdAt->format('Y-m-d H:i:s') : null, // Format the timestamp
+        ]);
     }
 
     /**

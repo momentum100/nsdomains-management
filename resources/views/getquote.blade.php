@@ -41,6 +41,10 @@ example.org">@foreach($results as $result){{ $result->domain }}@if(!$loop->last)
                     @endforeach
                 </tbody>
             </table>
+            <h4>Total Price: ${{ $total_price }}</h4>
+            @if($created_at)
+                <p>Results cached on: {{ $created_at }}</p>
+            @endif
         @endif
     </div>
 </div>
