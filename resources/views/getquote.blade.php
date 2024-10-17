@@ -58,7 +58,7 @@ document.getElementById('quote-form').addEventListener('submit', async function(
                 }
             });
 
-            html += '</tbody></table>';
+            html += `</tbody></table><h4>Total Price: $${data.total_price}</h4>`;
             resultsDiv.innerHTML = html;
         } else {
             resultsDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;

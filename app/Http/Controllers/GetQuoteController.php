@@ -46,6 +46,7 @@ class GetQuoteController extends Controller
         $domains = array_filter($domains);
 
         $results = [];
+        $totalPrice = 0;
 
         // Initialize WHOIS client
         $whois = Factory::get()->createWhois();
@@ -79,6 +80,7 @@ class GetQuoteController extends Controller
             // Determine price based on TLD and days left
             $tld = strtolower(substr(strrchr($domain, '.'), 1));
             $price = $this->calculatePrice($tld, $daysLeft);
+            $totalPrice += $price;
 
             $results[] = [
                 'domain' => $domain,
@@ -92,6 +94,7 @@ class GetQuoteController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $results,
+            'total_price' => number_format($totalPrice, 2),
         ]);
     }
 
