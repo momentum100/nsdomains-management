@@ -28,7 +28,7 @@ example.org">
                 <thead>
                     <tr>
                         <th>Domain</th>
-                        <th>Registrant</th>
+                        <th>Registrar</th>
                         <th>Expiration Date</th>
                         <th>Days Left</th>
                         <th>Price ($)</th>
@@ -38,7 +38,7 @@ example.org">
                     @foreach ($results as $result)
                         <tr>
                             <td>{{ $result->domain }}</td>
-                            <td>{{ $result->registrant }}</td>
+                            <td>{{ $result->registrar }}</td>
                             <td>{{ $result->expiration_date }}</td>
                             <td>{{ $result->days_left }}</td>
                             <td>{{ $result->price }}</td>
