@@ -111,6 +111,7 @@ class GetQuoteController extends Controller
                 'expiration_date' => $expirationDate->toDateString(),
                 'days_left' => $daysLeft >= 0 ? $daysLeft : 0,
                 'price' => number_format($price, 2),
+                'registrar' => $whoisData['registrar'] ?? 'N/A', // Ensure registrar is included in results
             ];
 
             // Save each result to the database
