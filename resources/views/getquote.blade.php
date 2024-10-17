@@ -29,7 +29,7 @@ example.org">
                     <tr>
                         <th>Domain</th>
                         <th>Registrar</th>
-                        <th>New Registration Price ($)</th> <!-- New column header -->
+                        <th>New Reg Price ($)</th> <!-- New column header -->
                         <th>Expiration Date</th>
                         <th>Days Left</th>
                         <th>Price ($)</th>
