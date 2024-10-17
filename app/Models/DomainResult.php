@@ -12,7 +12,7 @@ class DomainResult extends Model
     protected $fillable = [
         'uuid',
         'domain',
-        'registrant',
+        'registrar',
         'expiration_date',
         'days_left',
         'price',
