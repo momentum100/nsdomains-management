@@ -27,7 +27,7 @@ document.getElementById('quote-form').addEventListener('submit', async function(
     resultsDiv.innerHTML = '<p>Loading...</p>';
 
     try {
-        const response = await fetch("/getquote/process", {
+        const response = await fetch("{{ route('getquote.process') }}", {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
