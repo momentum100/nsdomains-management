@@ -91,7 +91,7 @@ document.getElementById('quote-form').addEventListener('submit', async function(
                                 <td>${domain.price}</td>
                              </tr>`;
                 }
-            });
+            }); // Ensure this closing parenthesis is present
 
             html += `</tbody></table><h4>Total Price: $${data.total_price}</h4>`;
             resultsDiv.innerHTML = html;
