@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="container">
-    <h2>Get Domain Quotes</h2>
+    <h2><a href="{{ url()->current() }}" class="text-decoration-none">Get Domain Price Quotes</a></h2> <!-- Make heading a link -->
     <form id="quote-form">
         @csrf
         <div class="form-group">
@@ -18,12 +18,12 @@ example.org">
 </textarea>
         </div>
         <button type="button" class="btn btn-secondary mt-3" id="clean-button">Clean</button>
-        <button type="submit" class="btn btn-primary mt-3" id="send-button">Send</button>
+        <button type="submit" class="btn btn-primary mt-3" id="send-button">Get Price Quote for my Domains</button>
     </form>
 
     <div id="results" class="mt-5">
         @if($results->isNotEmpty())
-            <h3>Previous Quotes:</h3>
+            <h3>Previous Price Quotes:</h3>
             <table class="table table-bordered">
                 <thead>
                     <tr>
