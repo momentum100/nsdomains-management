@@ -27,10 +27,22 @@ class GetQuoteController extends Controller
             // Fetch the results using the UUID from DomainResult
             $results = DomainResult::where('uuid', $uuid)->get(['domain', 'registrar', 'expiration_date', 'days_left', 'price']); // Include 'registrar'
 
+            // Load domain registration prices from JSON file
+            $jsonPath = storage_path('app/namecheap.json');
+            $jsonData = json_decode(file_get_contents($jsonPath), true);
+
             // Calculate total price if results are found
             if (!$results->isEmpty()) {
                 $totalPrice = $results->sum('price');
                 $createdAt = $results->first()->created_at; // Get the creation time of the first result
+
+                // Add registration price to each result
+                $results = $results->map(function ($result) use ($jsonData) {
+                    $tld = strtolower(substr(strrchr($result->domain, '.'), 1));
+                    $registrationPrice = $this->getRegistrationPrice($jsonData, $tld);
+                    $result->newReg = number_format($registrationPrice, 2);
+                    return $result;
+                });
             }
         }
 
@@ -75,6 +87,10 @@ class GetQuoteController extends Controller
 
         $uuid = Str::uuid(); // Generate a UUID for this set of results
 
+        // Load domain registration prices from JSON file
+        $jsonPath = storage_path('app/namecheap.json');
+        $jsonData = json_decode(file_get_contents($jsonPath), true);
+
         foreach ($domains as $domain) {
             // Basic domain validation
             if (!filter_var('http://' . $domain, FILTER_VALIDATE_URL)) {
@@ -101,17 +117,19 @@ class GetQuoteController extends Controller
             $today = Carbon::today();
             $daysLeft = $today->diffInDays($expirationDate, false);
 
-            // Determine price based on TLD and days left
+            // Extract TLD from domain
             $tld = strtolower(substr(strrchr($domain, '.'), 1));
-            $price = $this->calculatePrice($tld, $daysLeft);
-            $totalPrice += $price;
+
+            // Determine registration price from JSON data
+            $registrationPrice = $this->getRegistrationPrice($jsonData, $tld);
 
             $results[] = [
                 'domain' => $domain,
                 'expiration_date' => $expirationDate->toDateString(),
                 'days_left' => $daysLeft >= 0 ? $daysLeft : 0,
-                'price' => number_format($price, 2),
+                'price' => number_format($this->calculatePrice($tld, $daysLeft), 2), // Use existing price calculation
                 'registrar' => $whoisData['registrar'] ?? 'N/A', // Ensure registrar is included in results
+                'newReg' => number_format($registrationPrice, 2), // Add registration price to results
             ];
 
             // Save each result to the database
@@ -120,7 +138,7 @@ class GetQuoteController extends Controller
                 'domain' => $domain,
                 'expiration_date' => $expirationDate->toDateString(),
                 'days_left' => $daysLeft >= 0 ? $daysLeft : 0,
-                'price' => $price,
+                'price' => $this->calculatePrice($tld, $daysLeft), // Save calculated price
                 'registrar' => $whoisData['registrar'] ?? 'N/A', // Save registrar information
             ]);
         }
@@ -209,6 +227,16 @@ class GetQuoteController extends Controller
                 return 1.75; // Half of 3.5
             }
         }
+    }
+
+    private function getRegistrationPrice($jsonData, $tld)
+    {
+        foreach ($jsonData as $entry) {
+            if ($entry['Tld'] === $tld) {
+                return $entry['Register']['Price'];
+            }
+        }
+        return 0.0; // Default price if TLD not found
     }
 
     public function showResults($uuid)

@@ -32,6 +32,7 @@ example.org">
                         <th>Expiration Date</th>
                         <th>Days Left</th>
                         <th>Price ($)</th>
+                        <th>New Registration Price ($)</th> <!-- New column header -->
                     </tr>
                 </thead>
                 <tbody>
@@ -42,6 +43,7 @@ example.org">
                             <td>{{ $result->expiration_date }}</td>
                             <td>{{ $result->days_left }}</td>
                             <td>{{ $result->price }}</td>
+                            <td>{{ $result->newReg }}</td> <!-- New column data -->
                         </tr>
                     @endforeach
                 </tbody>
@@ -121,13 +123,13 @@ document.getElementById('quote-form').addEventListener('submit', async function(
         const data = await response.json();
 
         if (data.status === 'success') {
-            let html = '<h3>Quotes:</h3><table class="table table-bordered"><thead><tr><th>Domain</th><th>Registrar</th><th>Expiration Date</th><th>Days Left</th><th>Price ($)</th></tr></thead><tbody>';
+            let html = '<h3>Quotes:</h3><table class="table table-bordered"><thead><tr><th>Domain</th><th>Registrar</th><th>Expiration Date</th><th>Days Left</th><th>Price ($)</th><th>New Registration Price ($)</th></tr></thead><tbody>';
 
             data.data.forEach(domain => {
                 if(domain.error){
                     html += `<tr>
                                 <td>${domain.domain}</td>
-                                <td colspan="4" class="text-danger">${domain.error}</td>
+                                <td colspan="5" class="text-danger">${domain.error}</td>
                              </tr>`;
                 } else {
                     html += `<tr>
@@ -136,6 +138,7 @@ document.getElementById('quote-form').addEventListener('submit', async function(
                                 <td>${domain.expiration_date}</td>
                                 <td>${domain.days_left}</td>
                                 <td>${domain.price}</td>
+                                <td>${domain.newReg}</td>
                              </tr>`;
                 }
             });
