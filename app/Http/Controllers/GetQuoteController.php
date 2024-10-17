@@ -145,6 +145,9 @@ class GetQuoteController extends Controller
         try {
             $info = $whois->loadDomainInfo($domain);
             if ($info) {
+                // Log the entire WHOIS info object for debugging
+                \Log::info("WHOIS info for domain {$domain}: ", (array) $info);
+
                 $expirationDate = $info->expirationDate;
                 return [
                     'registrant' => $info->registrantOrganization ?? 'N/A',

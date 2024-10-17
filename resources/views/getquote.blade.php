@@ -55,6 +55,18 @@ example.org">
 </div>
 
 <script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        const messageSpan = document.getElementById('copy-message');
+        messageSpan.style.display = 'inline'; // Show the message
+        setTimeout(() => {
+            messageSpan.style.display = 'none'; // Hide the message after 2 seconds
+        }, 2000);
+    }).catch(err => {
+        console.error('Could not copy text: ', err);
+    });
+}
+
 document.getElementById('clean-button').addEventListener('click', function() {
     // Parse the input to extract domain names using a refined regular expression
     const rawInput = document.getElementById('domains').value;
@@ -103,7 +115,9 @@ document.getElementById('quote-form').addEventListener('submit', async function(
             });
 
             html += `</tbody></table><h4>Total Price: $${data.total_price}</h4>`;
-            html += `<a href="/getquote/${data.uuid}" class="btn btn-link mt-3">View Full Results</a>`; // Use UUID in link
+            html += `<a href="/getquote/${data.uuid}" class="btn btn-link mt-3">View Cached Results</a>`; // Use UUID in link
+            html += `<button class="btn btn-secondary mt-3" onclick="copyToClipboard('${window.location.origin}/getquote/${data.uuid}')">Copy URL</button>`; // Add copy URL button with full URL
+            html += `<span id="copy-message" class="text-success ml-2" style="display:none;">URL copied!</span>`; // Message span
             resultsDiv.innerHTML = html;
         } else {
             resultsDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
