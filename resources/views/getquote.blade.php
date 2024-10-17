@@ -95,7 +95,7 @@ document.getElementById('quote-form').addEventListener('submit', async function(
         const data = await response.json();
 
         if (data.status === 'success') {
-            let html = '<h3>Quotes:</h3><table class="table table-bordered"><thead><tr><th>Domain</th><th>Registrant</th><th>Expiration Date</th><th>Days Left</th><th>Price ($)</th></tr></thead><tbody>';
+            let html = '<h3>Quotes:</h3><table class="table table-bordered"><thead><tr><th>Domain</th><th>Registrar</th><th>Expiration Date</th><th>Days Left</th><th>Price ($)</th></tr></thead><tbody>';
 
             data.data.forEach(domain => {
                 if(domain.error){
@@ -106,7 +106,7 @@ document.getElementById('quote-form').addEventListener('submit', async function(
                 } else {
                     html += `<tr>
                                 <td>${domain.domain}</td>
-                                <td>${domain.registrant}</td>
+                                <td>${domain.registrar}</td>
                                 <td>${domain.expiration_date}</td>
                                 <td>${domain.days_left}</td>
                                 <td>${domain.price}</td>
