@@ -33,8 +33,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/domains/mark-as-sold', [DomainController::class, 'markAsSold'])->name('domains.markAsSold');
 });
 
-// Authentication routes
-//Auth::routes();
+// Authentication routes without registration
+Auth::routes(['register' => false]);
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 
