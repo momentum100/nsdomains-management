@@ -5,6 +5,7 @@
     <h2>Domains</h2>
     <a href="{{ route('domains.export') }}" class="btn btn-success mb-3">Export CSV</a>
     <a href="{{ url('/upload') }}" class="btn btn-primary mb-3">Upload</a>
+    <a href="{{ url('/getquote') }}" class="btn btn-secondary mb-3">Get Quote</a>
     
     <div class="d-flex justify-content-between">
         <div>
