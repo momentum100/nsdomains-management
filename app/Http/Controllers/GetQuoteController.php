@@ -18,7 +18,7 @@ class GetQuoteController extends Controller
      */
     public function showForm($uuid = null)
     {
-        $results = [];
+        $results = collect(); // Initialize as an empty Collection
 
         if ($uuid) {
             $results = DomainResult::where('uuid', $uuid)->get();
