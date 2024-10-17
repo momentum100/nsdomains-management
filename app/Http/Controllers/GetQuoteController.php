@@ -24,12 +24,10 @@ class GetQuoteController extends Controller
         $createdAt = null;
 
         if ($uuid) {
-            // Fetch the results using the UUID from DomainResult
-            $results = DomainResult::where('uuid', $uuid)->get(['domain', 'registrar', 'expiration_date', 'days_left', 'price']); // Include 'registrar'
-
-            // Load domain registration prices from JSON file
-            $jsonPath = storage_path('app/namecheap.json');
-            $jsonData = json_decode(file_get_contents($jsonPath), true);
+            // Fetch the results using the UUID from DomainResult and sort by 'days_left'
+            $results = DomainResult::where('uuid', $uuid)
+                ->orderBy('days_left', 'asc') // Sort by 'days_left' in ascending order
+                ->get(['domain', 'registrar', 'expiration_date', 'days_left', 'price']); // Include 'registrar'
 
             // Calculate total price if results are found
             if (!$results->isEmpty()) {
@@ -37,12 +35,7 @@ class GetQuoteController extends Controller
                 $createdAt = $results->first()->created_at; // Get the creation time of the first result
 
                 // Add registration price to each result
-                $results = $results->map(function ($result) use ($jsonData) {
-                    $tld = strtolower(substr(strrchr($result->domain, '.'), 1));
-                    $registrationPrice = $this->getRegistrationPrice($jsonData, $tld);
-                    $result->newReg = number_format($registrationPrice, 2);
-                    return $result;
-                });
+                $results = $this->addRegistrationPrices($results);
             }
         }
 
@@ -86,10 +79,6 @@ class GetQuoteController extends Controller
         $whois = Factory::get()->createWhois();
 
         $uuid = Str::uuid(); // Generate a UUID for this set of results
-
-        // Load domain registration prices from JSON file
-        $jsonPath = storage_path('app/namecheap.json');
-        $jsonData = json_decode(file_get_contents($jsonPath), true);
 
         foreach ($domains as $domain) {
             // Basic domain validation
@@ -142,6 +131,10 @@ class GetQuoteController extends Controller
                 'registrar' => $whoisData['registrar'] ?? 'N/A', // Save registrar information
             ]);
         }
+
+        // Add registration prices to the results
+        $results = collect($results);
+        $results = $this->addRegistrationPrices($results);
 
         return response()->json([
             'status' => 'success',
@@ -237,6 +230,26 @@ class GetQuoteController extends Controller
             }
         }
         return 0.0; // Default price if TLD not found
+    }
+
+    /**
+     * Add registration prices to the results.
+     *
+     * @param \Illuminate\Support\Collection $results
+     * @return \Illuminate\Support\Collection
+     */
+    private function addRegistrationPrices($results)
+    {
+        // Load domain registration prices from JSON file
+        $jsonPath = storage_path('app/namecheap.json');
+        $jsonData = json_decode(file_get_contents($jsonPath), true);
+
+        return $results->map(function ($result) use ($jsonData) {
+            $tld = strtolower(substr(strrchr($result->domain, '.'), 1));
+            $registrationPrice = $this->getRegistrationPrice($jsonData, $tld);
+            $result->newReg = number_format($registrationPrice, 2);
+            return $result;
+        });
     }
 
     public function showResults($uuid)
