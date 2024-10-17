@@ -107,9 +107,10 @@ class GetQuoteController extends Controller
         try {
             $info = $whois->loadDomainInfo($domain);
             if ($info) {
+                $expirationDate = $info->expirationDate;
                 return [
                     'registrant' => $info->registrantOrganization ?? 'N/A',
-                    'expiration_date' => $info->expirationDate ? $info->expirationDate->format('Y-m-d') : null,
+                    'expiration_date' => $expirationDate ? Carbon::parse($expirationDate)->format('Y-m-d') : null,
                 ];
             }
         } catch (\Exception $e) {
