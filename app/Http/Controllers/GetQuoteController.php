@@ -128,7 +128,7 @@ class GetQuoteController extends Controller
             'status' => 'success',
             'data' => $results,
             'total_price' => number_format($totalPrice, 2),
-            'link' => url("/results/{$uuid}"), // Generate a link to the results
+            'link' => url("/getquote/{$uuid}"), // Generate a link to the results
         ]);
     }
 
