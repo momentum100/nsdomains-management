@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UploadController;
 use App\Http\Controllers\DomainController;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\GetQuoteController;
 
 /*
 |--------------------------------------------------------------------------
@@ -35,3 +36,8 @@ Route::middleware(['auth'])->group(function () {
 Auth::routes();
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+
+// Add these routes outside the existing authenticated middleware group
+
+Route::get('/getquote', [App\Http\Controllers\GetQuoteController::class, 'showForm'])->name('getquote.form');
+Route::post('/getquote', [App\Http\Controllers\GetQuoteController::class, 'getQuote'])->name('getquote.process');
