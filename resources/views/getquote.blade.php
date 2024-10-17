@@ -11,7 +11,8 @@
 example.net
 example.org"></textarea>
         </div>
-        <button type="submit" class="btn btn-primary mt-3">Get Quotes</button>
+        <button type="button" class="btn btn-secondary mt-3" id="clean-button">Clean</button>
+        <button type="submit" class="btn btn-primary mt-3" id="send-button">Send</button>
     </form>
 
     <div id="results" class="mt-5">
@@ -20,8 +21,17 @@ example.org"></textarea>
 </div>
 
 <script>
+document.getElementById('clean-button').addEventListener('click', function() {
+    // Parse the input to extract domain names using a refined regular expression
+    const rawInput = document.getElementById('domains').value;
+    const domainRegex = /^[a-z0-9-]+\.[a-z]{2,}(?:\.[a-z]{2,})?/gim; // Matches domain names with extensions
+    const domains = Array.from(rawInput.matchAll(domainRegex), match => match[0]).join('\n');
+    document.getElementById('domains').value = domains;
+});
+
 document.getElementById('quote-form').addEventListener('submit', async function(e) {
     e.preventDefault();
+    
     const domains = document.getElementById('domains').value;
     const resultsDiv = document.getElementById('results');
     resultsDiv.innerHTML = '<p>Loading...</p>';
