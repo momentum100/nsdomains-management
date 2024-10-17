@@ -107,7 +107,6 @@ class GetQuoteController extends Controller
 
             $results[] = [
                 'domain' => $domain,
-                'registrant' => $whoisData['registrant'] ?? 'N/A',
                 'expiration_date' => $expirationDate->toDateString(),
                 'days_left' => $daysLeft >= 0 ? $daysLeft : 0,
                 'price' => number_format($price, 2),
@@ -153,7 +152,6 @@ class GetQuoteController extends Controller
                 $registrar = $info->registrar ?? 'N/A'; // Extract registrar information
 
                 return [
-                    'registrant' => $info->registrantOrganization ?? 'N/A',
                     'expiration_date' => $expirationDate ? Carbon::parse($expirationDate)->format('Y-m-d') : null,
                     'registrar' => $registrar, // Include registrar in the returned data
                 ];
