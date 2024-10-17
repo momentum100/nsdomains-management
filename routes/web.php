@@ -33,7 +33,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // Authentication routes
-Auth::routes();
+//Auth::routes();
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 
