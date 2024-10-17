@@ -11,7 +11,8 @@
 example.net
 example.org">
 @foreach($results as $result)
-{{ $result->domain }}@if(!$loop->last)
+{{ $result->domain }}
+@if(!$loop->last)
 @endif
 @endforeach
 </textarea>
