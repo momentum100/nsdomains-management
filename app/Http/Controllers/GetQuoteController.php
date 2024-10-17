@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Iodev\Whois\Factory;
 use Illuminate\Support\Str;
 use App\Models\DomainResult;
+use Illuminate\Support\Facades\Cache;
 
 class GetQuoteController extends Controller
 {
@@ -142,22 +143,34 @@ class GetQuoteController extends Controller
      */
     private function fetchWhois($whois, $domain)
     {
+        // Check if the WHOIS data is already cached
+        $cacheKey = "whois_{$domain}";
+        $cachedData = Cache::get($cacheKey);
+
+        if ($cachedData) {
+            \Log::info("WHOIS info for domain {$domain} retrieved from cache.");
+            return $cachedData;
+        }
+
         try {
             $info = $whois->loadDomainInfo($domain);
             if ($info) {
-                // Log the entire WHOIS info object for debugging
                 \Log::info("WHOIS info for domain {$domain}: ", (array) $info);
 
                 $expirationDate = $info->expirationDate;
-                $registrar = $info->registrar ?? 'N/A'; // Extract registrar information
+                $registrar = $info->registrar ?? 'N/A';
 
-                return [
+                $whoisData = [
                     'expiration_date' => $expirationDate ? Carbon::parse($expirationDate)->format('Y-m-d') : null,
-                    'registrar' => $registrar, // Include registrar in the returned data
+                    'registrar' => $registrar,
                 ];
+
+                // Store the WHOIS data in the cache for 24 hours
+                Cache::put($cacheKey, $whoisData, now()->addHours(24));
+
+                return $whoisData;
             }
         } catch (\Exception $e) {
-            // Log the error if needed
             \Log::error("WHOIS fetch error for domain {$domain}: " . $e->getMessage());
         }
 
