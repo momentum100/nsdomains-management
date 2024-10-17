@@ -94,7 +94,7 @@ document.getElementById('quote-form').addEventListener('submit', async function(
             });
 
             html += `</tbody></table><h4>Total Price: $${data.total_price}</h4>`;
-            html += `<a href="${data.link}" class="btn btn-link mt-3">View Full Results</a>`; // Add link to results
+            html += `<a href="/getquote/${data.uuid}" class="btn btn-link mt-3">View Full Results</a>`; // Use UUID in link
             resultsDiv.innerHTML = html;
         } else {
             resultsDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;

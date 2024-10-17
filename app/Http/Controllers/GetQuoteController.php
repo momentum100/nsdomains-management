@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Iodev\Whois\Factory;
 use Illuminate\Support\Str;
 use App\Models\DomainResult;
+use App\Models\Quote;
 
 class GetQuoteController extends Controller
 {
@@ -21,10 +22,11 @@ class GetQuoteController extends Controller
         $results = collect(); // Initialize as an empty Collection
 
         if ($uuid) {
-            $results = DomainResult::where('uuid', $uuid)->get();
+            // Fetch the results using the UUID
+            $results = Quote::where('uuid', $uuid)->get();
         }
 
-        return view('getquote', ['results' => $results]);
+        return view('getquote', compact('results'));
     }
 
     /**
