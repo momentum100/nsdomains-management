@@ -80,7 +80,31 @@ document.getElementById('quote-form').addEventListener('submit', async function(
     
     const domains = document.getElementById('domains').value;
     const resultsDiv = document.getElementById('results');
-    resultsDiv.innerHTML = '<p>Loading...</p>';
+    let secondsElapsed = 0;
+    const quotes = [
+        "Hey, your list is long, wait for more!",
+        "Patience is a virtue, especially with long lists!",
+        "Good things come to those who wait!",
+        "Almost there, hang tight!",
+        "Your patience will be rewarded soon!",
+        "Just a little longer, we promise!",
+        "Great things take time!",
+        "Hold on, we're fetching magic!",
+        "Almost done, stay with us!",
+        "Fetching results, please wait!"
+    ];
+
+    resultsDiv.innerHTML = `<p>Loading... <span id="loading-counter">0</span> seconds</p><p id="funny-quote"></p>`;
+
+    const intervalId = setInterval(() => {
+        secondsElapsed++;
+        document.getElementById('loading-counter').textContent = secondsElapsed;
+
+        if (secondsElapsed % 10 === 0) {
+            const quoteIndex = (secondsElapsed / 10) % quotes.length;
+            document.getElementById('funny-quote').textContent = quotes[quoteIndex];
+        }
+    }, 1000);
 
     try {
         const response = await fetch("{{ route('getquote.process', [], true) }}", { // Ensure HTTPS by passing true
@@ -91,6 +115,8 @@ document.getElementById('quote-form').addEventListener('submit', async function(
             },
             body: JSON.stringify({ domains })
         });
+
+        clearInterval(intervalId); // Stop the counter once the response is received
 
         const data = await response.json();
 
@@ -123,6 +149,7 @@ document.getElementById('quote-form').addEventListener('submit', async function(
             resultsDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
         }
     } catch (error) {
+        clearInterval(intervalId); // Stop the counter in case of an error
         console.error('Error fetching quotes:', error);
         resultsDiv.innerHTML = `<div class="alert alert-danger">An error occurred while fetching quotes.</div>`;
     }
