@@ -24,7 +24,7 @@ class GetQuoteController extends Controller
 
         if ($uuid) {
             // Fetch the results using the UUID from DomainResult
-            $results = DomainResult::where('uuid', $uuid)->get();
+            $results = DomainResult::where('uuid', $uuid)->get(['domain', 'registrar', 'expiration_date', 'days_left', 'price']); // Include 'registrar'
 
             // Calculate total price if results are found
             if (!$results->isEmpty()) {
