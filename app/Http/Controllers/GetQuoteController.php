@@ -136,16 +136,25 @@ class GetQuoteController extends Controller
         $premiumTlds = ['com', 'net', 'org'];
 
         if (in_array($tld, $premiumTlds)) {
-            if ($daysLeft <= 14) { // 2 weeks to 1 month
+            if ($daysLeft < 14) {
+                return 0.0;
+            } elseif ($daysLeft > 14 && $daysLeft < 31) {
                 return 1.5;
-            } elseif ($daysLeft <= 90) { // 1-3 months
+            } elseif ($daysLeft > 30 && $daysLeft < 91) {
                 return 3.0;
-            } elseif ($daysLeft > 90) { // 3+ months
+            } else { // $daysLeft > 90
                 return 3.5;
             }
+        } else {
+            if ($daysLeft < 14) {
+                return 0.0;
+            } elseif ($daysLeft > 14 && $daysLeft < 31) {
+                return 0.75; // Half of 1.5
+            } elseif ($daysLeft > 30 && $daysLeft < 91) {
+                return 1.5; // Half of 3.0
+            } else { // $daysLeft > 90
+                return 1.75; // Half of 3.5
+            }
         }
-
-        // Other TLDs
-        return 0.5;
     }
 }
