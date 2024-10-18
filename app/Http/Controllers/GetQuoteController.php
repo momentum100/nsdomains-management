@@ -249,9 +249,18 @@ class GetQuoteController extends Controller
         $jsonData = json_decode(file_get_contents($jsonPath), true);
 
         return $results->map(function ($result) use ($jsonData) {
-            $tld = strtolower(substr(strrchr($result->domain, '.'), 1));
+            // Check if $result is an array and access elements accordingly
+            $domain = is_array($result) ? $result['domain'] : $result->domain;
+            $tld = strtolower(substr(strrchr($domain, '.'), 1));
             $registrationPrice = $this->getRegistrationPrice($jsonData, $tld);
-            $result->newReg = number_format($registrationPrice, 2);
+
+            // Update the result with the new registration price
+            if (is_array($result)) {
+                $result['newReg'] = number_format($registrationPrice, 2);
+            } else {
+                $result->newReg = number_format($registrationPrice, 2);
+            }
+
             return $result;
         });
     }
