@@ -80,6 +80,10 @@ class GetQuoteController extends Controller
 
         $uuid = Str::uuid(); // Generate a UUID for this set of results
 
+        // Load domain registration prices from JSON file
+        $jsonPath = storage_path('app/namecheap.json');
+        $jsonData = json_decode(file_get_contents($jsonPath), true);
+
         foreach ($domains as $domain) {
             // Basic domain validation
             if (!filter_var('http://' . $domain, FILTER_VALIDATE_URL)) {
