@@ -156,7 +156,7 @@ document.getElementById('quote-form').addEventListener('submit', async function(
     } catch (error) {
         clearInterval(intervalId); // Stop the counter in case of an error
         console.error('Error fetching quotes:', error);
-        resultsDiv.innerHTML = `<div class="alert alert-danger">An error occurred while fetching quotes.</div>`;
+        resultsDiv.innerHTML = `<div class="alert alert-danger">An error occurred while fetching quotes.<br> TRY AGAN IF LIST WAS BIG - WHOIS RESULTS ARE CACHED <br></div>`;
     }
 });
 </script>
