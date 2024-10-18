@@ -31,11 +31,13 @@ class GetQuoteController extends Controller
 
             // Calculate total price if results are found
             if (!$results->isEmpty()) {
-                $totalPrice = $results->sum('price');
                 $createdAt = $results->first()->created_at; // Get the creation time of the first result
 
                 // Add registration price to each result
                 $results = $this->addRegistrationPrices($results);
+
+                // Calculate total price using only the 'price' field
+                $totalPrice = $results->sum('price');
             }
         }
 
