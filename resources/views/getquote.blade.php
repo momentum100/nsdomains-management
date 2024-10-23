@@ -170,7 +170,7 @@ document.getElementById('download-csv-button').addEventListener('click', functio
     ];
 
     let csvContent = "data:text/csv;charset=utf-8," 
-        + rows.map(e => e.join(",")).join("\n");
+        + rows.map(row => row.map(value => `"${value}"`).join(",")).join("\n");
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
