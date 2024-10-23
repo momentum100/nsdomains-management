@@ -19,6 +19,7 @@ example.org">
         </div>
         <button type="button" class="btn btn-secondary mt-3" id="clean-button">Clean</button>
         <button type="submit" class="btn btn-primary mt-3" id="send-button">Get Price Quote for my Domains</button>
+        <button type="button" class="btn btn-success mt-3" id="download-csv-button">Download CSV</button>
     </form>
 
     <div id="results" class="mt-5">
@@ -158,6 +159,27 @@ document.getElementById('quote-form').addEventListener('submit', async function(
         console.error('Error fetching quotes:', error);
         resultsDiv.innerHTML = `<div class="alert alert-danger">An error occurred while fetching quotes.<br> TRY AGAN IF LIST WAS BIG - WHOIS RESULTS ARE CACHED <br></div>`;
     }
+});
+
+document.getElementById('download-csv-button').addEventListener('click', function() {
+    const rows = [
+        ["Domain", "Registrar", "New Reg Price ($)", "Expiration Date", "Days Left", "Price ($)"],
+        @foreach ($results as $result)
+        ["{{ $result->domain }}", "{{ $result->registrar }}", "{{ $result->newReg }}", "{{ $result->expiration_date }}", "{{ $result->days_left }}", "{{ $result->price }}"],
+        @endforeach
+    ];
+
+    let csvContent = "data:text/csv;charset=utf-8," 
+        + rows.map(e => e.join(",")).join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "domain_quotes.csv");
+    document.body.appendChild(link);
+
+    link.click();
+    document.body.removeChild(link);
 });
 </script>
 @endsection
