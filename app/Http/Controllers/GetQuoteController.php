@@ -171,7 +171,7 @@ class GetQuoteController extends Controller
 
         try {
             $info = $whois->loadDomainInfo($domain);
-            if ($info) {
+            if ($info && $info->expirationDate) { // Ensure expirationDate is valid
                 \Log::info("WHOIS info for domain {$domain}: ", (array) $info);
 
                 $expirationDate = $info->expirationDate;
@@ -183,7 +183,7 @@ class GetQuoteController extends Controller
                 ];
 
                 // Store the WHOIS data in the cache for 24 hours
-                Cache::put($cacheKey, $whoisData, now()->addHours(24));
+                Cache::put($cacheKey, $whoisData, now()->addHours(240));
 
                 return $whoisData;
             }
