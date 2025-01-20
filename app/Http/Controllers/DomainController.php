@@ -18,6 +18,8 @@ class DomainController extends Controller
     private const PRICE_NORMAL_REGULAR = 4.00;
     private const PRICE_LONG_PREMIUM = 6.00;
     private const PRICE_LONG_REGULAR = 5.00;
+    private const PRICE_VERY_LONG_PREMIUM = 9.00;
+    private const PRICE_VERY_LONG_REGULAR = 5.00;
 
     public function index(Request $request)
     {
@@ -78,7 +80,14 @@ class DomainController extends Controller
             return $price;
         }
         
-        // Long expiration (>91 days)
+        // Very long expiration (200+ days) with different pricing for premium domains
+        if ($daysLeft >= 200) {
+            $price = $isPremium ? self::PRICE_VERY_LONG_PREMIUM : self::PRICE_VERY_LONG_REGULAR;
+            \Log::info("Price set to VERY LONG (" . ($isPremium ? 'Premium' : 'Regular') . "): $$price");
+            return $price;
+        }
+        
+        // Long expiration (91-199 days)
         $price = $isPremium ? self::PRICE_LONG_PREMIUM : self::PRICE_LONG_REGULAR;
         \Log::info("Price set to LONG (" . ($isPremium ? 'Premium' : 'Regular') . "): $$price");
         return $price;
