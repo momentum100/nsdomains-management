@@ -41,10 +41,10 @@ class DownloadAllDomains extends Command
                 continue;
             }
             
-            // Convert DownloadDynadotDomains to domains:download-dynadot
+            // Convert DownloadDynadotDomains to domains:download-dynadot-domains
             $commandName = 'domains:' . strtolower(preg_replace(
-                ['/([a-z])([A-Z])/', '/Download/', '/Domains$/'],
-                ['$1-$2', '', ''],
+                ['/([a-z])([A-Z])/', '/Download/'],
+                ['$1-$2', ''],
                 $className
             ));
             
