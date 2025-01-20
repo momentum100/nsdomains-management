@@ -177,12 +177,15 @@
                     @foreach($domains as $domain)
                     <tr>
                         <td>
-                            <span class="domain-cell">${{ $domain->domain }}</span>
+                            <span class="domain-cell">{{ $domain->name }}</span>
+                            <button class="copy-btn" onclick="copyToClipboard('{{ $domain->name }}')">
+                                <i class="fas fa-copy"></i>
+                            </button>
                         </td>
-                        <td>{{ date('Y-m-d', $domain->exp_date) }}</td>
+                        <td>{{ $domain->expiration_date }}</td>
                         <td>{{ $domain->registrar }}</td>
                         <td>{{ $domain->days_left }}</td>
-                        <td>${{ number_format($domain->suggested_price, 2) }}</td>
+                        <td>${{ $domain->price }}</td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -264,6 +267,15 @@
             setTimeout(() => {
                 feedback.style.display = 'none';
             }, 2000);
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                // Optional: Show a brief success message
+                alert('Domain copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
         }
     </script>
 </body>
