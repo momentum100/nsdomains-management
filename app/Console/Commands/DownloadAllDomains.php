@@ -24,12 +24,12 @@ class DownloadAllDomains extends Command
                ->in(app_path('Console/Commands'))
                ->name('Download*.php');
         
-        // Keep track of what we're doing
+        // Initialize our counters and collectors
         $totalCommands = 0;
         $successfulCommands = 0;
         $failedCommands = [];
+        $commandOutputs = []; // New array to store all outputs
         
-        // Show a nice progress bar
         $this->info('Searching for download commands...');
         
         $commands = [];
@@ -64,46 +64,66 @@ class DownloadAllDomains extends Command
         
         $this->info("Found {$totalCommands} download commands to execute");
         
-        // Create a progress bar
-        $progress = $this->output->createProgressBar($totalCommands);
-        $progress->start();
-        
-        // Run each command
-        foreach ($commands as $command) {
-            Log::info("Executing command: {$command}");
-            $this->newLine();
-            $this->info("Running {$command}...");
+        // Run each command and collect output
+        foreach ($commands as $index => $command) {
+            $commandNumber = $index + 1;
+            Log::info("Executing command {$commandNumber}/{$totalCommands}: {$command}");
+            $this->info("\n[{$commandNumber}/{$totalCommands}] Running {$command}...");
             
             try {
                 // Run the command and capture its exit code
+                $startTime = microtime(true);
                 $exitCode = Artisan::call($command);
+                $executionTime = round(microtime(true) - $startTime, 2);
                 
                 // Get the output from the command
-                $output = Artisan::output();
+                $output = trim(Artisan::output());
+                
+                // Store the command results
+                $commandOutputs[$command] = [
+                    'status' => $exitCode === 0 ? 'SUCCESS' : 'FAILED',
+                    'execution_time' => $executionTime,
+                    'output' => $output,
+                    'exit_code' => $exitCode
+                ];
                 
                 if ($exitCode === 0) {
                     $successfulCommands++;
-                    Log::info("Successfully executed {$command}");
+                    Log::info("Successfully executed {$command} in {$executionTime}s");
                 } else {
                     $failedCommands[] = $command;
-                    Log::error("Command {$command} failed with exit code {$exitCode}");
-                    Log::error("Output: " . trim($output));
+                    Log::error("Command {$command} failed with exit code {$exitCode} after {$executionTime}s");
+                    Log::error("Output: {$output}");
                 }
                 
             } catch (\Exception $e) {
                 $failedCommands[] = $command;
+                $commandOutputs[$command] = [
+                    'status' => 'ERROR',
+                    'execution_time' => 0,
+                    'output' => $e->getMessage(),
+                    'exit_code' => -1
+                ];
                 Log::error("Exception running {$command}: " . $e->getMessage());
             }
-            
-            $progress->advance();
         }
         
-        $progress->finish();
-        
-        // Show final results
+        // Display detailed summary
         $this->newLine(2);
+        $this->info('=== EXECUTION SUMMARY ===');
+        foreach ($commandOutputs as $command => $result) {
+            $this->info("\n🔹 {$command}");
+            $this->info("Status: {$result['status']}");
+            $this->info("Time: {$result['execution_time']}s");
+            $this->info("Exit Code: {$result['exit_code']}");
+            $this->info("Output:");
+            $this->line($result['output']);
+            $this->line(str_repeat('-', 50));
+        }
+        
+        // Show final statistics
         $message = sprintf(
-            "Finished running all commands!\n" .
+            "\n📊 FINAL STATISTICS:\n" .
             "Total commands: %d\n" .
             "Successful: %d\n" .
             "Failed: %d",
@@ -116,7 +136,7 @@ class DownloadAllDomains extends Command
         $this->info($message);
         
         if (!empty($failedCommands)) {
-            $this->error("Failed commands: " . implode(', ', $failedCommands));
+            $this->error("❌ Failed commands: " . implode(', ', $failedCommands));
         }
         
         return count($failedCommands) === 0 ? 0 : 1;
