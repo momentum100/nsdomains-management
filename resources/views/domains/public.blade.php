@@ -25,6 +25,51 @@
             display: block;
             margin-bottom: 5px;
         }
+        
+        /* Sticky Panel Styles */
+        .sticky-panel {
+            position: fixed;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 300px;
+            background: #ffffff;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            padding: 15px;
+            border-radius: 8px 0 0 8px;
+            z-index: 1000;
+        }
+        .domain-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        }
+        .domain-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        .domain-item button {
+            padding: 0 5px;
+            font-size: 12px;
+        }
+        .clickable {
+            cursor: pointer;
+            color: #0d6efd;
+            text-decoration: underline;
+        }
+        .copy-feedback {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: #28a745;
+            color: white;
+            border-radius: 4px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -82,6 +127,18 @@
             Last updated: {{ now()->format('Y-m-d H:i:s') }}
         </p>
 
+        <!-- Sticky Panel -->
+        <div class="sticky-panel">
+            <h5>Selected Domains</h5>
+            <div class="domain-list" id="selectedDomains">
+                <!-- Selected domains will be added here -->
+            </div>
+            <button class="btn btn-primary btn-sm w-100" onclick="copyAllDomains()">Copy All Domains</button>
+        </div>
+
+        <!-- Copy Feedback -->
+        <div class="copy-feedback" id="copyFeedback">Copied!</div>
+
         <div class="table-responsive">
             <table class="table table-striped table-hover">
                 <thead class="table-dark">
@@ -96,7 +153,14 @@
                 <tbody>
                     @foreach($domains as $domain)
                     <tr>
-                        <td>{{ $domain->domain }}</td>
+                        <td>
+                            <span class="clickable" onclick="addDomain('{{ $domain->domain }}')">
+                                {{ $domain->domain }}
+                            </span>
+                            <button class="btn btn-sm btn-outline-primary" onclick="addDomain('{{ $domain->domain }}')">
+                                Copy
+                            </button>
+                        </td>
                         <td>{{ date('Y-m-d', $domain->exp_date) }}</td>
                         <td>{{ $domain->registrar }}</td>
                         <td>{{ $domain->days_left }}</td>
@@ -119,5 +183,70 @@
 
     <!-- Include Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Store selected domains
+        let selectedDomains = new Set();
+
+        // Add domain to the sticky panel
+        function addDomain(domain) {
+            if (!selectedDomains.has(domain)) {
+                selectedDomains.add(domain);
+                updateDomainList();
+                showFeedback('Domain added!');
+            }
+        }
+
+        // Remove domain from the sticky panel
+        function removeDomain(domain) {
+            selectedDomains.delete(domain);
+            updateDomainList();
+        }
+
+        // Update the domain list display
+        function updateDomainList() {
+            const container = document.getElementById('selectedDomains');
+            container.innerHTML = '';
+            
+            selectedDomains.forEach(domain => {
+                const div = document.createElement('div');
+                div.className = 'domain-item';
+                div.innerHTML = `
+                    <span>${domain}</span>
+                    <button class="btn btn-danger btn-sm" onclick="removeDomain('${domain}')">×</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Copy all selected domains
+        function copyAllDomains() {
+            if (selectedDomains.size === 0) {
+                showFeedback('No domains selected!');
+                return;
+            }
+            
+            const domainsText = Array.from(selectedDomains).join('\n');
+            navigator.clipboard.writeText(domainsText)
+                .then(() => {
+                    showFeedback('All domains copied!');
+                })
+                .catch(err => {
+                    showFeedback('Failed to copy domains');
+                    console.error('Failed to copy: ', err);
+                });
+        }
+
+        // Show feedback message
+        function showFeedback(message) {
+            const feedback = document.getElementById('copyFeedback');
+            feedback.textContent = message;
+            feedback.style.display = 'block';
+            
+            setTimeout(() => {
+                feedback.style.display = 'none';
+            }, 2000);
+        }
+    </script>
 </body>
 </html> 
