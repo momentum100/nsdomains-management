@@ -29,15 +29,17 @@
         /* Sticky Panel Styles */
         .sticky-panel {
             position: fixed;
-            right: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 300px;
-            background: #ffffff;
-            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            bottom: 20px;  /* Distance from bottom */
+            right: 20px;   /* Distance from right */
+            z-index: 1000; /* Ensure it stays on top */
+            background: #fff;
             padding: 15px;
-            border-radius: 8px 0 0 8px;
-            z-index: 1000;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            max-width: 300px; /* Limit width to prevent overlap */
+        }
+        .sticky-panel:hover {
+            transform: scale(1.02);
         }
         .domain-list {
             max-height: 300px;
@@ -69,6 +71,27 @@
             color: white;
             border-radius: 4px;
             display: none;
+        }
+        .main-table {
+            max-width: 80%; /* Reduce table width to prevent overlay */
+            margin: 0 auto; /* Center the table */
+        }
+        .domain-cell {
+            /* Remove default link styling */
+            color: inherit;
+            text-decoration: none;
+            cursor: default;
+        }
+        .copy-btn {
+            border: none;
+            background: transparent;
+            padding: 4px 8px;
+            font-size: 0.9em;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        .copy-btn:hover {
+            opacity: 1;
         }
     </style>
 </head>
@@ -154,12 +177,7 @@
                     @foreach($domains as $domain)
                     <tr>
                         <td>
-                            <span class="clickable" onclick="addDomain('{{ $domain->domain }}')">
-                                {{ $domain->domain }}
-                            </span>
-                            <button class="btn btn-sm btn-outline-primary" onclick="addDomain('{{ $domain->domain }}')">
-                                Copy
-                            </button>
+                            <span class="domain-cell">${{ $domain->domain }}</span>
                         </td>
                         <td>{{ date('Y-m-d', $domain->exp_date) }}</td>
                         <td>{{ $domain->registrar }}</td>
