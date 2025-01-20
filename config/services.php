@@ -39,4 +39,8 @@ return [
         'api_key' => env('GODADDY_API_KEY'),
     ],
 
+    'namecom' => [
+        'api_key' => env('NAMECOM_API_KEY'),
+    ],
+
 ];

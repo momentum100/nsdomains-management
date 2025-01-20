@@ -10,6 +10,10 @@ This project supports downloading domain information from various domain registr
   - Download domain list
   - Domain information retrieval
 
+### GOdaddy docs
+- API: https://developer.godaddy.com/doc/endpoint/domains#/v1/list
+
+
 ### Other Registrars
 - Cosmotown
 - GoDaddy
