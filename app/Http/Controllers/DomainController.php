@@ -174,4 +174,24 @@ class DomainController extends Controller
 
         return redirect()->route('domains.index')->with('success', 'Domains marked as sold successfully.');
     }
+
+    public function publicList()
+    {
+        // Get domains and calculate days left
+        $domains = Domain::select('*', DB::raw('DATEDIFF(FROM_UNIXTIME(exp_date), NOW()) as days_left'))
+            ->where('status', 'ACTIVE')
+            ->whereRaw('DATEDIFF(FROM_UNIXTIME(exp_date), NOW()) > 0')  // Only future expiring domains
+            ->orderBy('exp_date')
+            ->limit(150)  // Limit to 150 domains
+            ->get()
+            ->map(function ($domain) {
+                // Add suggested price to each domain
+                $domain->suggested_price = $this->calculatePrice($domain->days_left, $domain->domain);
+                return $domain;
+            });
+
+        \Log::info('Public list accessed. Showing ' . $domains->count() . ' domains');
+        
+        return view('domains.public', compact('domains'));
+    }
 }
