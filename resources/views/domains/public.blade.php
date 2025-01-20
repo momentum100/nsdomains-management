@@ -6,6 +6,8 @@
     <title>Available Domains</title>
     <!-- Include Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Add Font Awesome CSS in head section -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         /* Custom styles for better readability */
         .table-hover tbody tr:hover {
@@ -83,15 +85,24 @@
             cursor: default;
         }
         .copy-btn {
-            border: none;
-            background: transparent;
-            padding: 4px 8px;
-            font-size: 0.9em;
-            opacity: 0.7;
-            transition: opacity 0.2s;
+            padding: 2px 8px;
+            margin-left: 8px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            background-color: transparent;
+            cursor: pointer;
+            transition: all 0.2s;
         }
         .copy-btn:hover {
-            opacity: 1;
+            background-color: #e9ecef;
+        }
+        
+        /* Toast styling */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1100;
         }
     </style>
 </head>
@@ -178,8 +189,8 @@
                     <tr>
                         <td>
                             <span class="domain-cell">{{ $domain->domain }}</span>
-                            <button class="copy-btn" onclick="copyToClipboard('{{ $domain->domain }}')">
-                                <i class="fas fa-copy"></i>
+                            <button class="copy-btn" onclick="copyToClipboard('{{ $domain->domain }}')" title="Copy domain">
+                                <i class="fas fa-copy"></i> Copy
                             </button>
                         </td>
                         <td>{{ date('Y-m-d', $domain->exp_date) }}</td>
@@ -271,12 +282,33 @@
 
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(() => {
-                // Optional: Show a brief success message
-                alert('Domain copied to clipboard!');
+                // Show toast notification
+                const toast = new bootstrap.Toast(document.getElementById('copyToast'));
+                document.getElementById('toastMessage').textContent = 'Domain copied: ' + text;
+                toast.show();
+                
+                // Add to selected domains
+                addDomain(text);
             }).catch(err => {
                 console.error('Failed to copy:', err);
+                document.getElementById('toastMessage').textContent = 'Failed to copy domain';
+                const toast = new bootstrap.Toast(document.getElementById('copyToast'));
+                toast.show();
             });
         }
     </script>
+
+    <!-- Add toast container before closing body tag -->
+    <div class="toast-container">
+        <div class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true" id="copyToast">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <span id="toastMessage">Domain copied!</span>
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
 </body>
 </html> 
