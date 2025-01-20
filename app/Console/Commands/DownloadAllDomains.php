@@ -43,13 +43,13 @@ class DownloadAllDomains extends Command
             
             // Convert DownloadSpaceshipDomains to domains:download-spaceship
             $commandName = 'domains:download-' . strtolower(preg_replace(
-                ['/([a-z])([A-Z])/', '/^Download/', '/Domains$/'],
-                ['$1-$2', '', ''],
+                ['/([a-z])([A-Z])/', '/^Download/', '/Domains$/', '/-$/'],
+                ['$1-$2', '', '', ''],
                 $className
             ));
             
-            // Clean up any double hyphens that might occur
-            $commandName = str_replace('--', '-', $commandName);
+            // Clean up any double hyphens and trailing hyphens
+            $commandName = rtrim(str_replace('--', '-', $commandName), '-');
             
             $commands[] = $commandName;
             $totalCommands++;
