@@ -54,4 +54,9 @@ return [
         'api_secret' => env('PORKBUN_API_SECRET'),
     ],
 
+    'spaceship' => [
+        'api_key' => env('SPACESHIP_API_KEY'),
+        'api_secret' => env('SPACESHIP_API_SECRET'),
+    ],
+
 ];
