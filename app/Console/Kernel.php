@@ -12,7 +12,12 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Run domains:download-all every 3 hours
+        $schedule->command('domains:download-all')
+                ->everyThreeHours()
+                ->withoutOverlapping() // Prevents running if previous instance is still running
+                ->runInBackground()    // Runs in background to prevent blocking
+                ->appendOutputTo(storage_path('logs/domains-download-all.log')); // Logs output to file
     }
 
     /**

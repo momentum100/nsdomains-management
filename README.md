@@ -42,3 +42,8 @@ This project supports downloading domain information from various domain registr
 - Regery - rare
 - SAV - whitelist ips 
 - Spaceship DONE
+
+
+### CRONTAB DOWNLOAD ALL REGISTRARS
+crontab -e
+* * * * * cd /path/to/your/project && php artisan schedule:run >> /dev/null 2>&1
