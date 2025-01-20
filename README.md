@@ -34,11 +34,11 @@ This project supports downloading domain information from various domain registr
 ### API DOWNLOAD COMPLETITION STATUS
  -dynadot DONE
  -godaddy DONE
-- Cosmotown
+- Cosmotown - no api
 - Namebright - requires 100$
 - Namecheap DONE
 - Name.com DONE
 - Porkbun DONE
-- Regery
+- Regery - rare
 - SAV - whitelist ips 
 - Spaceship DONE
