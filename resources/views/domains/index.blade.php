@@ -54,6 +54,7 @@
                         <th>Expiration Date</th>
                         <th>Registrar</th>
                         <th>Days Left</th>
+                        <th>Suggested Price</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -64,6 +65,7 @@
                             <td>{{ date('Y-m-d H:i:s', $domain->exp_date) }}</td>
                             <td>{{ $domain->registrar }}</td>
                             <td>{{ $domain->days_left }}</td>
+                            <td>${{ number_format($domain->suggested_price, 2) }}</td>
                         </tr>
                     @endforeach
                 </tbody>

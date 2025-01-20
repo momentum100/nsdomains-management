@@ -10,13 +10,27 @@ use Illuminate\Support\Facades\DB;
 
 class DomainController extends Controller
 {
+    // Constants for better maintainability
+    private const PREMIUM_EXTENSIONS = ['com', 'net', 'org'];
+    private const PRICE_URGENT = 2.00;
+    private const PRICE_SOON = 3.50;
+    private const PRICE_NORMAL_PREMIUM = 5.00;
+    private const PRICE_NORMAL_REGULAR = 4.00;
+    private const PRICE_LONG_PREMIUM = 6.00;
+    private const PRICE_LONG_REGULAR = 5.00;
+
     public function index(Request $request)
     {
         $status = $request->query('status', 'ACTIVE'); // Get status from query, default to ACTIVE
         $domains = Domain::select('*', DB::raw('DATEDIFF(FROM_UNIXTIME(exp_date), NOW()) as days_left'))
                          ->where('status', $status) // Filter by status
                          ->orderBy('exp_date')
-                         ->get();
+                         ->get()
+                         ->map(function ($domain) {
+                             // Add suggested price to each domain
+                             $domain->suggested_price = $this->calculatePrice($domain->days_left, $domain->domain);
+                             return $domain;
+                         });
         $total = $domains->count();
         $active = Domain::where('status', 'ACTIVE')->count();
         $sold = Domain::where('status', 'SOLD')->count();
@@ -27,6 +41,47 @@ class DomainController extends Controller
         \Log::info('Total domains: ' . $total);
 
         return view('domains.index', compact('domains', 'total', 'status', 'active', 'sold', 'activeDomainsByRegistrar')); // Pass status and counts to view
+    }
+
+    /**
+     * Calculate suggested price based on days left and domain extension
+     * @param int $daysLeft
+     * @param string $domain
+     * @return float
+     */
+    private function calculatePrice(int $daysLeft, string $domain): float
+    {
+        // Get domain extension (everything after the last dot)
+        $extension = strtolower(substr(strrchr($domain, '.'), 1));
+        
+        \Log::info("Calculating price for domain: $domain (Days left: $daysLeft, Extension: $extension)");
+        
+        // Very urgent domains (less than 15 days)
+        if ($daysLeft < 15) {
+            \Log::info("Price set to URGENT: $" . self::PRICE_URGENT);
+            return self::PRICE_URGENT;
+        }
+        
+        // Soon expiring domains (15-30 days)
+        if ($daysLeft < 30) {
+            \Log::info("Price set to SOON: $" . self::PRICE_SOON);
+            return self::PRICE_SOON;
+        }
+        
+        // Check if it's a premium extension
+        $isPremium = in_array($extension, self::PREMIUM_EXTENSIONS);
+        
+        // Normal expiration (30-91 days)
+        if ($daysLeft < 91) {
+            $price = $isPremium ? self::PRICE_NORMAL_PREMIUM : self::PRICE_NORMAL_REGULAR;
+            \Log::info("Price set to NORMAL (" . ($isPremium ? 'Premium' : 'Regular') . "): $$price");
+            return $price;
+        }
+        
+        // Long expiration (>91 days)
+        $price = $isPremium ? self::PRICE_LONG_PREMIUM : self::PRICE_LONG_REGULAR;
+        \Log::info("Price set to LONG (" . ($isPremium ? 'Premium' : 'Regular') . "): $$price");
+        return $price;
     }
 
     public function exportCsv()
