@@ -31,4 +31,8 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'dynadot' => [
+        'api_key' => env('DYNADOT_API_KEY'),
+    ],
+
 ];
