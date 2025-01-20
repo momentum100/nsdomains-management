@@ -35,4 +35,8 @@ return [
         'api_key' => env('DYNADOT_API_KEY'),
     ],
 
+    'godaddy' => [
+        'api_key' => env('GODADDY_API_KEY'),
+    ],
+
 ];
