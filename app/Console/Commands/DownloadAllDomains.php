@@ -29,6 +29,7 @@ class DownloadAllDomains extends Command
         $successfulCommands = 0;
         $failedCommands = [];
         $commandOutputs = []; // New array to store all outputs
+        $processCompletedLines = []; // Initialize collector for Process completed lines
         
         $this->info('Searching for download commands...');
         
@@ -78,6 +79,12 @@ class DownloadAllDomains extends Command
                 
                 // Get the output from the command
                 $output = trim(Artisan::output());
+                
+                // Extract "Process completed" line if exists
+                if (preg_match('/Process completed.*$/m', $output, $matches)) {
+                    // Add command name before the Process completed line
+                    $processCompletedLines[] = "[{$command}] " . $matches[0];
+                }
                 
                 // Store the command results
                 $commandOutputs[$command] = [
@@ -137,6 +144,43 @@ class DownloadAllDomains extends Command
         
         if (!empty($failedCommands)) {
             $this->error("❌ Failed commands: " . implode(', ', $failedCommands));
+        }
+        
+        // Send Process completed lines to Telegram if we have any
+        if (!empty($processCompletedLines)) {
+            $telegramMessage = "Domain Download Summary:\n\n" . implode("\n", $processCompletedLines);
+            
+            // Initialize cURL
+            $curl = curl_init();
+            
+            // Set cURL options
+            curl_setopt_array($curl, [
+                CURLOPT_URL => 'https://api.telegram.org/bot1790397670:AAFsAoJ5Qju9V4phdq5cflhJF938uS7t2QI/sendMessage',
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_SSL_VERIFYPEER => false, // As per your requirements to not verify SSL
+                CURLOPT_POSTFIELDS => [
+                    'chat_id' => '-4188687896',
+                    'text' => $telegramMessage
+                ]
+            ]);
+            
+            // Execute the request
+            $response = curl_exec($curl);
+            $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            
+            // Check for errors
+            if ($response === false || $httpCode !== 200) {
+                $error = curl_error($curl);
+                Log::error('Failed to send message to Telegram: ' . $error);
+                $this->error('Failed to send message to Telegram: ' . $error);
+            } else {
+                Log::info('Successfully sent summary to Telegram');
+                $this->info('Successfully sent summary to Telegram');
+            }
+            
+            // Close cURL session
+            curl_close($curl);
         }
         
         return count($failedCommands) === 0 ? 0 : 1;
