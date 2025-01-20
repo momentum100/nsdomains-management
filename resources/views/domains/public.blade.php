@@ -79,13 +79,14 @@
             margin: 0 auto; /* Center the table */
         }
         .domain-cell {
-            /* Remove default link styling */
             color: inherit;
             text-decoration: none;
             cursor: default;
-            word-break: break-word;
+            word-break: normal;
+            overflow-wrap: break-word;
+            white-space: nowrap;
             display: inline-block;
-            max-width: calc(100% - 70px); /* Account for copy button */
+            max-width: calc(100% - 70px);
         }
         .copy-btn {
             padding: 2px 8px;
@@ -138,6 +139,32 @@
             border-radius: 12px;
             font-size: 0.9em;
             margin-left: 8px;
+        }
+
+        /* Make table more responsive on mobile */
+        @media (max-width: 768px) {
+            .table th:nth-child(1),
+            .table td:nth-child(1) {
+                min-width: 200px; /* Ensure minimum width for domain column */
+                white-space: nowrap; /* Prevent domain name wrapping */
+            }
+            
+            /* Allow table to scroll horizontally on mobile */
+            .table-responsive {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            /* Adjust main table width for mobile */
+            .main-table {
+                max-width: 100%;
+            }
+            
+            /* Adjust sticky panel for mobile */
+            .sticky-panel {
+                max-width: 250px;
+                font-size: 0.9em;
+            }
         }
     </style>
 </head>
@@ -300,6 +327,7 @@
             const domainsText = Array.from(selectedDomains).join('\n');
             navigator.clipboard.writeText(domainsText)
                 .then(() => {
+                    // Display a feedback message indicating all domains have been copied
                     showFeedback('All domains copied!');
                 })
                 .catch(err => {
@@ -324,7 +352,7 @@
                 // Show toast notification
                 const toast = new bootstrap.Toast(document.getElementById('copyToast'));
                 document.getElementById('toastMessage').textContent = 'Domain copied: ' + text;
-                toast.show();
+                //toast.show();
                 
                 // Add to selected domains
                 addDomain(text);
