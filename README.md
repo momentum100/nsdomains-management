@@ -36,9 +36,9 @@ This project supports downloading domain information from various domain registr
  -godaddy DONE
 - Cosmotown
 - Namebright - requires 100$
-- Namecheap
+- Namecheap DONE
 - Name.com DONE
-- Porkbun
+- Porkbun DONE
 - Regery
-- SAV
+- SAV - whitelist ips 
 - Spaceship
