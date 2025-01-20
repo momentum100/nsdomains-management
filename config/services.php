@@ -43,4 +43,10 @@ return [
         'api_key' => env('NAMECOM_API_KEY'),
     ],
 
+    'namecheap' => [
+        'api_key' => env('NAMECHEAP_API_KEY'),
+        'username' => env('NAMECHEAP_USERNAME'),
+        'client_ip' => env('NAMECHEAP_CLIENT_IP', '127.0.0.1'),
+    ],
+
 ];

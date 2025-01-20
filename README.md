@@ -29,3 +29,16 @@ This project supports downloading domain information from various domain registr
 1. Obtain API credentials from your registrar
 2. Configure your API keys in the settings
 3. Use the download command to retrieve your domains
+
+
+### API DOWNLOAD COMPLETITION STATUS
+ -dynadot DONE
+ -godaddy DONE
+- Cosmotown
+- Namebright - requires 100$
+- Namecheap
+- Name.com DONE
+- Porkbun
+- Regery
+- SAV
+- Spaceship
