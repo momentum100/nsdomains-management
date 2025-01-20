@@ -11,10 +11,6 @@
         .table-hover tbody tr:hover {
             background-color: #f5f5f5;
         }
-        .price-column {
-            font-weight: bold;
-            color: #28a745;
-        }
         .info-card {
             background-color: #f8f9fa;
             border-left: 4px solid #0d6efd;
@@ -104,12 +100,21 @@
                         <td>{{ date('Y-m-d', $domain->exp_date) }}</td>
                         <td>{{ $domain->registrar }}</td>
                         <td>{{ $domain->days_left }}</td>
-                        <td class="price-column">${{ number_format($domain->suggested_price, 2) }}</td>
+                        <td>${{ number_format($domain->suggested_price, 2) }}</td>
                     </tr>
                     @endforeach
                 </tbody>
             </table>
         </div>
+    </div>
+
+    <!-- Page break and Footer -->
+    <div class="container-fluid mt-5">
+        <hr class="my-5"> <!-- Page break -->
+        <footer class="text-center text-muted py-4">
+            <p class="mb-1">© 2024 CheapNames. All rights reserved.</p>
+            <p class="mb-0">Contact: <a href="https://t.me/CheapNamesSupport" target="_blank">@CheapNamesSupport</a></p>
+        </footer>
     </div>
 
     <!-- Include Bootstrap JS -->
