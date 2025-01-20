@@ -83,6 +83,9 @@
             color: inherit;
             text-decoration: none;
             cursor: default;
+            word-break: break-word;
+            display: inline-block;
+            max-width: calc(100% - 70px); /* Account for copy button */
         }
         .copy-btn {
             padding: 2px 8px;
@@ -103,6 +106,38 @@
             top: 20px;
             right: 20px;
             z-index: 1100;
+        }
+        
+        /* Add these new styles for table columns */
+        .table th:nth-child(1), /* Domain column */
+        .table td:nth-child(1) {
+            width: 25%;
+            max-width: 300px;
+        }
+        .table th:nth-child(2), /* Expiration Date column */
+        .table td:nth-child(2) {
+            width: 20%;
+        }
+        .table th:nth-child(3), /* Registrar column */
+        .table td:nth-child(3) {
+            width: 20%;
+        }
+        .table th:nth-child(4), /* Days Left column */
+        .table td:nth-child(4) {
+            width: 15%;
+        }
+        .table th:nth-child(5), /* Price column */
+        .table td:nth-child(5) {
+            width: 20%;
+        }
+        /* Add this style for the counter */
+        .domain-counter {
+            background-color: #0d6efd;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.9em;
+            margin-left: 8px;
         }
     </style>
 </head>
@@ -163,7 +198,7 @@
 
         <!-- Sticky Panel -->
         <div class="sticky-panel">
-            <h5>Selected Domains</h5>
+            <h5>Selected Domains <span id="domainCounter" class="domain-counter">0</span></h5>
             <div class="domain-list" id="selectedDomains">
                 <!-- Selected domains will be added here -->
             </div>
@@ -190,7 +225,7 @@
                         <td>
                             <span class="domain-cell">{{ $domain->domain }}</span>
                             <button class="copy-btn" onclick="copyToClipboard('{{ $domain->domain }}')" title="Copy domain">
-                                <i class="fas fa-copy"></i> Copy
+                                <i class="fas fa-copy"></i>
                             </button>
                         </td>
                         <td>{{ date('Y-m-d', $domain->exp_date) }}</td>
@@ -238,7 +273,11 @@
         // Update the domain list display
         function updateDomainList() {
             const container = document.getElementById('selectedDomains');
+            const counter = document.getElementById('domainCounter');
             container.innerHTML = '';
+            
+            // Update counter
+            counter.textContent = selectedDomains.size;
             
             selectedDomains.forEach(domain => {
                 const div = document.createElement('div');
