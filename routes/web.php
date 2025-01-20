@@ -46,4 +46,4 @@ Route::post('/getquote', [GetQuoteController::class, 'getQuote'])->name('getquot
 // Manually define the logout route
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-Route::get('/domains/public', [DomainController::class, 'publicList'])->name('domains.public');
+Route::get('/public', [DomainController::class, 'publicList'])->name('domains.public');
