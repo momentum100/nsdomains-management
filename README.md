@@ -41,4 +41,4 @@ This project supports downloading domain information from various domain registr
 - Porkbun DONE
 - Regery
 - SAV - whitelist ips 
-- Spaceship
+- Spaceship DONE
