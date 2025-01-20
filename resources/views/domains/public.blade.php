@@ -40,9 +40,9 @@
                     <h4 class="mb-3">Как купить / How to Buy:</h4>
                     <div class="contact-links">
                         <a href="https://t.me/CheapNamesSupport" target="_blank" class="btn btn-primary mb-2">
-                            <i class="bi bi-telegram"></i> Telegram Support
+                            <i class="bi bi-telegram"></i> ПОКУПАТЬ ЧЕРЕЗ ПОДДЕРЖКУ BUY HERE @CheapNamesSupport!
                         </a>
-                        <div class="alert alert-success">Цена / Price: $5</div>
+          
                     </div>
 
                     <h4 class="mt-4">Регистраторы / Registrars:</h4>
@@ -54,6 +54,7 @@
                             <li>✓ Dynadot</li>
                             <li>✓ Cosmotown</li>
                             <li>✓ Namesilo</li>
+                            <li> ... </li>
                         </ul>
                     </div>
                 </div>
