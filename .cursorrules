@@ -1,0 +1,5 @@
+use DRY technique
+Output entire script contents, like with all imports.
+Always first explain what you plan to do and then output code.
+Leave comments like ELI15, like i am 15yo.
+Always use logging and output counters, middle work results - so we always know whats going on
