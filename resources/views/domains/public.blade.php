@@ -177,15 +177,15 @@
                     @foreach($domains as $domain)
                     <tr>
                         <td>
-                            <span class="domain-cell">{{ $domain->name }}</span>
-                            <button class="copy-btn" onclick="copyToClipboard('{{ $domain->name }}')">
+                            <span class="domain-cell">{{ $domain->domain }}</span>
+                            <button class="copy-btn" onclick="copyToClipboard('{{ $domain->domain }}')">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </td>
-                        <td>{{ $domain->expiration_date }}</td>
+                        <td>{{ date('Y-m-d', $domain->exp_date) }}</td>
                         <td>{{ $domain->registrar }}</td>
                         <td>{{ $domain->days_left }}</td>
-                        <td>${{ $domain->price }}</td>
+                        <td>${{ $domain->suggested_price }}</td>
                     </tr>
                     @endforeach
                 </tbody>
