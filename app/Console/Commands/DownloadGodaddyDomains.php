@@ -18,16 +18,34 @@ class DownloadGodaddyDomains extends Command
 
     public function handle()
     {
-        // Start logging the process
-        Log::info('Starting GoDaddy domains download' . ($this->option('dry-run') ? ' (DRY RUN)' : ''));
+        // Start logging the process with more debug info
+        Log::info('Starting GoDaddy domains download', [
+            'dry_run' => $this->option('dry-run'),
+            'environment' => app()->environment()
+        ]);
         
-        // Get API credentials from .env
+        // Get API credentials from .env with detailed logging
         $apiKey = config('services.godaddy.api_key');
         
-        // Validate API key exists
-        if (!$apiKey) {
-            Log::error('GoDaddy API key not found');
+        // Log masked API key for debugging
+        Log::info('API Key Check', [
+            'key_exists' => !empty($apiKey),
+            'key_length' => strlen($apiKey),
+            'key_last_4' => !empty($apiKey) ? '****' . substr($apiKey, -4) : 'EMPTY',
+            'config_path' => 'services.godaddy.api_key'
+        ]);
+        
+        // Enhanced API key validation
+        if (empty($apiKey)) {
+            Log::error('GoDaddy API key not found or empty');
             $this->error('GoDaddy API key not found. Please check your .env file.');
+            return 1;
+        }
+
+        // Validate API key format (should contain : for key:secret format)
+        if (!str_contains($apiKey, ':')) {
+            Log::error('GoDaddy API key appears to be malformed - missing key:secret format');
+            $this->error('GoDaddy API key should be in format "key:secret"');
             return 1;
         }
 
@@ -39,10 +57,17 @@ class DownloadGodaddyDomains extends Command
             $newDomains = 0;
             $skippedDomains = 0;
 
+            // Log the request headers (masking the API key)
+            $headers = [
+                'Authorization' => "sso-key " . '****' . substr($apiKey, -4),
+                'Accept' => 'application/json'
+            ];
+            Log::info('Making API request with headers:', ['headers' => $headers]);
+
             // Make API request with authentication and status filter
             $response = Http::withoutVerifying()
                 ->withHeaders([
-                    'Authorization' => "sso-key {$apiKey}",
+                    'Authorization' => "sso-key " . '****' . substr($apiKey, -4),
                     'Accept' => 'application/json'
                 ])
                 ->get("{$this->apiUrl}/domains", [
