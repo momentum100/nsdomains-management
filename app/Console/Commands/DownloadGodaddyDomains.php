@@ -57,26 +57,33 @@ class DownloadGodaddyDomains extends Command
             $newDomains = 0;
             $skippedDomains = 0;
 
-            // Log the request headers (masking the API key)
-            $headers = [
-                'Authorization' => "sso-key " . '****' . substr($apiKey, -4),
-                'Accept' => 'application/json'
-            ];
-            Log::info('Making API request with headers:', ['headers' => $headers]);
+            // Properly format the API key for GoDaddy
+            // The format should be exactly: sso-key KEY:SECRET (no spaces in KEY:SECRET)
+            $apiKeyTrimmed = trim($apiKey); // Remove any accidental whitespace
+            
+            // Log the API key format (safely)
+            Log::info('API Key Format Check', [
+                'contains_spaces' => str_contains($apiKeyTrimmed, ' '),
+                'key_parts_count' => count(explode(':', $apiKeyTrimmed)),
+                'total_length' => strlen($apiKeyTrimmed),
+                'starts_with_spaces' => $apiKeyTrimmed !== $apiKey
+            ]);
 
-            // Make API request with authentication and status filter
+            // Make API request with proper header format
             $response = Http::withoutVerifying()
                 ->withHeaders([
-                    'Authorization' => "sso-key " . '****' . substr($apiKey, -4),
+                    'Authorization' => 'sso-key ' . $apiKeyTrimmed, // Note the space after sso-key
                     'Accept' => 'application/json'
                 ])
                 ->get("{$this->apiUrl}/domains", [
-                    'statuses' => 'ACTIVE',  // Filter for active domains only
-                    'limit' => 1000          // Add limit to ensure we get all domains
+                    'statuses' => 'ACTIVE',
+                    'limit' => 1000
                 ]);
 
-            Log::info('API Request URL:', [
+            // Log the request details (safely)
+            Log::info('API Request Details', [
                 'url' => "{$this->apiUrl}/domains",
+                'auth_header_format' => 'sso-key ****' . substr($apiKeyTrimmed, -4),
                 'params' => ['statuses' => 'ACTIVE', 'limit' => 1000]
             ]);
 
