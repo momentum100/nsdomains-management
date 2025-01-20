@@ -41,12 +41,15 @@ class DownloadAllDomains extends Command
                 continue;
             }
             
-            // Convert DownloadDynadotDomains to domains:download-dynadot-domains
+            // Convert DownloadDynadotDomains to domains:namecheap-domains
             $commandName = 'domains:' . strtolower(preg_replace(
                 ['/([a-z])([A-Z])/', '/Download/'],
                 ['$1-$2', ''],
                 $className
             ));
+            
+            // Remove the extra hyphen after 'domains:'
+            $commandName = str_replace('domains:-', 'domains:', $commandName);
             
             $commands[] = $commandName;
             $totalCommands++;
