@@ -64,8 +64,8 @@
                     </ul>
                     
                     <div class="alert alert-info mt-3">
-                        <p class="mb-2">✓ От 10 доменов по $3.5 на дату окончания меньше 1 месяца</p>
-                        <p class="mb-0">✓ Брошенные домены по $1.19 
+                       
+                        <p class="mb-0 w-100 d-block">✓ Брошенные домены по $1.19 
                             <a href="https://t.me/CheapNamesBot" target="_blank">@CheapNamesbot</a>
                         </p>
                     </div>
