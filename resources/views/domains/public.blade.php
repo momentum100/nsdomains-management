@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Available Domains</title>
+    <title>NSDOMAINS @CheapNamesBot</title>
     <!-- Include Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Add Font Awesome CSS in head section -->
@@ -214,7 +214,7 @@
             </div>
         </div>
 
-        <h1 class="mb-4">Available Domains</h1>
+        <h1 class="mb-4">Доступно для покупки / Available Domains</h1>
         
         <!-- Add counter and last updated info -->
         <p class="text-muted">
