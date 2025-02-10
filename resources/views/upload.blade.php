@@ -7,7 +7,7 @@
     <h2>Upload Domains | <a href="/domains">View Domains</a></h2> 
 
     @if(session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
+    <div class="alert alert-success">{!! session('success') !!}</div>
     @endif
     <form action="{{ route('domains.upload') }}" method="POST" enctype="multipart/form-data" id="upload-form">
         @csrf
@@ -26,6 +26,7 @@
                 <option value="sav">SAV</option>
                 <option value="namesilo">NameSilo</option>
                 <option value="namecom">Name.com</option>
+                <option value="123reg.co.uk">123Reg.co.uk</option>
             </select>
         </div>
         <div class="form-group">
@@ -41,33 +42,44 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    console.info('Upload form initialized, ready for file drop.');
+
     let dropArea = document.getElementById('drop-area');
     let fileInput = document.getElementById('file');
+    let dropCounter = 0;
 
     dropArea.addEventListener('dragover', (event) => {
         event.preventDefault();
         dropArea.classList.add('dragging');
+        console.info('File dragged over drop area.');
     });
 
     dropArea.addEventListener('dragleave', () => {
         dropArea.classList.remove('dragging');
+        console.info('File left the drop area.');
     });
 
     dropArea.addEventListener('drop', (event) => {
         event.preventDefault();
         dropArea.classList.remove('dragging');
+        dropCounter++;
+        console.info('File dropped into drop area. Drop count: ' + dropCounter);
+
         fileInput.files = event.dataTransfer.files;
         if (fileInput.files.length > 0) {
+            console.info('File selected: ' + fileInput.files[0].name);
             dropArea.querySelector('p').textContent = fileInput.files[0].name;
         }
     });
 
     dropArea.addEventListener('click', () => {
+        console.info('Drop area clicked. Opening file dialog.');
         fileInput.click();
     });
 
     fileInput.addEventListener('change', () => {
         if (fileInput.files.length > 0) {
+            console.info('File selected via dialog: ' + fileInput.files[0].name);
             dropArea.querySelector('p').textContent = fileInput.files[0].name;
         }
     });

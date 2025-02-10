@@ -12,80 +12,103 @@ use League\Csv\Statement;
 
 class UploadController extends Controller
 {
+    /**
+     * Show the form for uploading domains.
+     */
     public function showUploadForm()
     {
         return view('upload');
     }
 
+    /**
+     * Process the uploaded CSV file and add new domains.
+     */
     public function uploadDomains(Request $request)
     {
+        // Validate the request input
         $request->validate([
             'registrar' => 'required',
             'file' => 'required|file|mimes:csv,txt',
         ]);
 
+        // Get the registrar and uploaded file from the request
         $registrar = $request->input('registrar');
         $file = $request->file('file');
 
-        // Read the file content
+        // Read the entire file content into an array (each line is an array element)
         $filePath = $file->getRealPath();
         $fileContent = file($filePath);
 
-        // Check and strip the first line if it contains the specific text
+        // ELI15: Check if the first line has a specific notice text. If so, remove it.
         if (strpos($fileContent[0], 'Please note that renewal prices') !== false) {
             array_shift($fileContent);
         }
 
-        // Convert the modified content back to a string
+        // Convert the filtered array of file lines back into one string for CSV parsing
         $fileContentString = implode("", $fileContent);
 
-        // Load the CSV document from the string
+        // Load the CSV document from the string content
         $csv = Reader::createFromString($fileContentString);
 
-        // Set the delimiter conditionally based on the registrar
+        // Set CSV delimiter conditionally based on the registrar input value.
         if ($registrar === 'regery') {
             $csv->setDelimiter(';');
         }
 
-        $csv->setHeaderOffset(0); // Set the header offset
+        $csv->setHeaderOffset(0); // Tells the library that the first row is the header
 
-        // Get the header
+        // Log the CSV header info for debugging
         $header = $csv->getHeader();
         Log::info('CSV Header: ' . implode(', ', $header));
 
-        // Create a statement to process the CSV
+        // Create a statement object to process the CSV content
         $stmt = (new Statement());
 
-        // Process the CSV records
+        // Process the records from the CSV
         $records = $stmt->process($csv);
 
-        // Log the initial data count
+        // Log how many rows were initially found in the CSV
         Log::info('Initial data count: ' . count($records));
 
-        $newDomainsCount = 0; // Initialize counter for new domains
+        $newDomainsCount = 0; // Counter for new domains added
 
-        foreach ($records as $row) {
+        // Process each row from the CSV data
+        foreach ($records as $index => $row) {
+            // Log a counter for each row being processed
+            Log::info("Processing row " . ($index + 1));
+
+            // Parse the row based on registrar and extract domain details
             $domainData = $this->parseRow($registrar, $row);
 
+            // If parsing fails, log a warning and skip this row.
             if (!$domainData) {
                 Log::warning('Skipping row due to parsing error: ' . implode(', ', $row));
                 continue;
             }
 
+            // Check if the domain already exists in the database.
             if (Domain::where('domain', $domainData['domain'])->exists()) {
                 Log::info('Domain already exists: ' . $domainData['domain']);
                 continue;
             }
 
+            // Create the new domain record in the database.
             Domain::create($domainData);
-            $newDomainsCount++; // Increment counter for each new domain added
+            $newDomainsCount++; // Increase our counter for each new domain added
             Log::info('New domain added: ' . $domainData['domain']);
         }
 
+        // Log the total number of newly added domains.
         Log::info('Total new domains added: ' . $newDomainsCount);
+
+        // Redirect back with a success message
         return redirect()->back()->with('success', "Domains uploaded successfully. New domains added: $newDomainsCount. Go <a href='/domains'>here</a> to view them.");
     }
 
+    /**
+     * Parse a CSV row based on the registrar type.
+     * ELI15: This function picks the right CSV columns based on the registrar to get the domain and the expiration date.
+     */
     private function parseRow($registrar, $row)
     {
         switch ($registrar) {
@@ -134,16 +157,23 @@ class UploadController extends Controller
                 $expDate = $row['Exp Date'];
                 $expTimestamp = strtotime($expDate);
                 break;
-            case 'namecom': // Updated to match the input registrar
+            case 'namecom': // Handle namecom with updated fields
                 $domain = $row['Domain Name'] ?? null;
                 $expDate = $row['Expire Date'] ?? null;
                 $expTimestamp = $expDate ? strtotime($expDate) : null;
                 break;
+            case '123reg.co.uk':
+                // ELI15: For 123reg.co.uk, we use the same column names as shown in the CSV sample.
+                $domain = $row['Domain Name'];
+                $expDate = $row['Expiration Date'];
+                $expTimestamp = strtotime($expDate);
+                break;
             default:
+                // If registrar doesn't match any case, return null.
                 return null;
         }
 
-        // Ensure the domain and exp_date are set correctly
+        // ELI15: Make sure we have a domain and a valid expiration date.
         if (empty($domain)) {
             Log::warning('Parsing error: Domain is missing', ['row' => $row]);
             return null;
@@ -154,15 +184,21 @@ class UploadController extends Controller
             return null;
         }
 
+        // Return the domain data as an array.
         return [
-            'domain' => $domain,
-            'exp_date' => $expTimestamp,
+            'domain'    => $domain,
+            'exp_date'  => $expTimestamp,
             'registrar' => $registrar,
         ];
     }
 
+    /**
+     * Parse date string for Dynadot registrar.
+     * ELI15: This function helps us adjust Dynadot's date format to a standard timestamp.
+     */
     private function parseDynadotDate($dateString)
     {
+        // Remove the timezone abbreviation if present and add our own timezone.
         $dateString = str_replace(' PST', '', $dateString);
         return strtotime($dateString . ' America/Los_Angeles');
     }
