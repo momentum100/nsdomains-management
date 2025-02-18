@@ -21,9 +21,12 @@ use Illuminate\Support\Facades\Log;
 
 Route::get('/', function () {
     if (auth()->check()) {
+        if (auth()->user()->is_admin) {
+            return redirect('/domains');
+        }
         return redirect('/home');
     }
-    return redirect('/domains');
+    return redirect('/getquote');
 });
 
 // Admin routes
@@ -39,16 +42,16 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/domains/export', [DomainController::class, 'exportCsv'])->name('domains.export');
 });
 
-// Authenticated user routes (both admin and regular users)
+// Authenticated user routes (non-admin)
 Route::middleware(['auth'])->group(function () {
-    Route::get('/getquote/{uuid?}', [GetQuoteController::class, 'showForm'])->name('getquote.form');
-    Route::post('/getquote', [GetQuoteController::class, 'getQuote'])->name('getquote.process');
+    Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 });
 
 // Public routes
 Route::get('/public', [DomainController::class, 'publicList'])->name('domains.public');
+Route::get('/getquote/{uuid?}', [GetQuoteController::class, 'showForm'])->name('getquote.form');
+Route::post('/getquote', [GetQuoteController::class, 'getQuote'])->name('getquote.process');
 
 // Authentication routes
 Auth::routes(['register' => true]);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
-Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
