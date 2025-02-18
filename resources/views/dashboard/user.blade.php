@@ -28,11 +28,38 @@
                                 </div>
                             </div>
                         </div>
-                        
-                        <!-- Add more cards here for future features -->
-                    </div>
 
-                    <!-- Add any additional user information or features here -->
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    Payment Details
+                                </div>
+                                <div class="card-body">
+                                    <form method="POST" action="{{ route('user.payment.update') }}">
+                                        @csrf
+                                        <div class="form-group">
+                                            <label for="payment_details">Your Payment Information</label>
+                                            <textarea 
+                                                class="form-control @error('payment_details') is-invalid @enderror" 
+                                                id="payment_details" 
+                                                name="payment_details" 
+                                                rows="4" 
+                                                placeholder="Enter your payment details (PayPal email, crypto wallet, etc.)"
+                                            >{{ old('payment_details', auth()->user()->payment_details) }}</textarea>
+                                            @error('payment_details')
+                                                <span class="invalid-feedback" role="alert">
+                                                    <strong>{{ $message }}</strong>
+                                                </span>
+                                            @enderror
+                                        </div>
+                                        <button type="submit" class="btn btn-primary mt-3">
+                                            Save Payment Details
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
