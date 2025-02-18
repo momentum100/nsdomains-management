@@ -203,38 +203,57 @@ class GetQuoteController extends Controller
      */
     private function calculatePrice($tld, $daysLeft)
     {
-        $premiumTlds = ['com', 'net', 'org'];
+        // Get registration price for the TLD
+        $registrationPrice = $this->getRegistrationPrice(null, $tld);
+        
+        \Log::info("Calculating price for TLD: {$tld}, Days left: {$daysLeft}, Registration price: {$registrationPrice}");
 
-        if (in_array($tld, $premiumTlds)) {
-            if ($daysLeft < 14) {
-                return 0.0;
-            } elseif ($daysLeft > 14 && $daysLeft < 31) {
-                return 1.5;
-            } elseif ($daysLeft > 30 && $daysLeft < 91) {
-                return 3.0;
-            } else { // $daysLeft > 90
-                return 3.5;
-            }
-        } else {
-            if ($daysLeft < 14) {
-                return 0.0;
-            } elseif ($daysLeft > 14 && $daysLeft < 31) {
-                return 0.75; // Half of 1.5
-            } elseif ($daysLeft > 30 && $daysLeft < 91) {
-                return 1.5; // Half of 3.0
-            } else { // $daysLeft > 90
-                return 1.75; // Half of 3.5
-            }
+        $premiumTlds = ['com', 'net', 'org'];
+        $isPremium = in_array($tld, $premiumTlds);
+
+        // Early return if domain is expiring soon
+        if ($daysLeft < 14) {
+            \Log::info("Domain expiring soon (< 14 days), price set to 0");
+            return 0.0;
         }
+
+        // Calculate base price based on time frames
+        if ($daysLeft > 14 && $daysLeft < 31) {
+            $basePrice = 1.5;
+        } elseif ($daysLeft > 30 && $daysLeft < 91) {
+            $basePrice = 3.0;
+        } else { // $daysLeft > 90
+            $basePrice = 3.5;
+        }
+
+        // For non-premium TLDs, calculate maximum allowed price
+        if (!$isPremium) {
+            $maxAllowedPrice = $registrationPrice * 0.5; // 50% of registration price
+            $finalPrice = min($basePrice, $maxAllowedPrice);
+            
+            \Log::info("Non-premium TLD calculation - Base price: {$basePrice}, Max allowed (50% of reg): {$maxAllowedPrice}, Final: {$finalPrice}");
+            
+            return $finalPrice;
+        }
+
+        \Log::info("Premium TLD calculation - Final price: {$basePrice}");
+        return $basePrice;
     }
 
-    private function getRegistrationPrice($jsonData, $tld)
+    private function getRegistrationPrice($jsonData = null, $tld)
     {
+        if ($jsonData === null) {
+            $jsonPath = env('DOMAIN_PRICES_JSON_PATH', 'storage/app/namecheap.json');
+            \Log::debug("Loading domain prices from: {$jsonPath}");
+            $jsonData = json_decode(file_get_contents(base_path($jsonPath)), true);
+        }
+
         foreach ($jsonData as $entry) {
             if ($entry['Tld'] === $tld) {
                 return $entry['Register']['Price'];
             }
         }
+        \Log::warning("No registration price found for TLD: {$tld}");
         return 0.0; // Default price if TLD not found
     }
 
@@ -246,17 +265,15 @@ class GetQuoteController extends Controller
      */
     private function addRegistrationPrices($results)
     {
-        // Load domain registration prices from JSON file
-        $jsonPath = storage_path('app/namecheap.json');
-        $jsonData = json_decode(file_get_contents($jsonPath), true);
+        // Load domain registration prices once
+        $jsonPath = env('DOMAIN_PRICES_JSON_PATH', 'storage/app/namecheap.json');
+        $jsonData = json_decode(file_get_contents(base_path($jsonPath)), true);
 
         return $results->map(function ($result) use ($jsonData) {
-            // Check if $result is an array and access elements accordingly
             $domain = is_array($result) ? $result['domain'] : $result->domain;
             $tld = strtolower(substr(strrchr($domain, '.'), 1));
             $registrationPrice = $this->getRegistrationPrice($jsonData, $tld);
 
-            // Update the result with the new registration price
             if (is_array($result)) {
                 $result['newReg'] = number_format($registrationPrice, 2);
             } else {
