@@ -302,3 +302,5 @@ class GetQuoteController extends Controller
         return view('results', ['results' => $results]);
     }
 }
+
+#end of file
