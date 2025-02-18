@@ -53,7 +53,7 @@ class DomainService
     }
 
     // ELI15: Process a single domain and return its information
-    private function processSignleDomain(string $domain, string $uuid): array
+    private function processSingleDomain(string $domain, string $uuid): array
     {
         $whoisData = $this->whoisService->fetchWhoisData($domain);
 
