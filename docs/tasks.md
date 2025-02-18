@@ -2,17 +2,22 @@
 
 ## 1. User Registration Enhancement
 ### Database Changes
-- Add new fields to users table:
+- [x] Add new fields to users table:
   - `namepros_name` (string)
   - `payment_details` (text)
   - `is_admin` (boolean, default: false)
 
 ### Implementation Tasks
-- [ ] Create migration for new user fields
-- [ ] Update User model with new fillable fields
-- [ ] Modify registration form to include new fields
+- [x] Create migration for new user fields
+- [x] Update User model with new fillable fields
+- [x] Modify registration form to include new fields
 - [ ] Add payment details template validation
-- [ ] Enable user registration in `routes/web.php`
+- [x] Enable user registration in `routes/web.php`
+- [x] Implement payment details editing in user dashboard
+  - [x] Create UserController with payment management
+  - [x] Add payment details form to dashboard
+  - [x] Implement update functionality
+  - [x] Add success messages and validation
 
 ## 2. Quote System Access
 ### Current Status
@@ -20,8 +25,8 @@
 - [x] Quote system working via `GetQuoteController`
 
 ### Required Changes
-- [ ] Add middleware to ensure quote routes remain public
-- [ ] Add user authentication check in quote views
+- [x] Add middleware to ensure quote routes remain public
+- [x] Add user authentication check in quote views
 
 ## 3. Domain Check Results Submission
 ### Database Changes
