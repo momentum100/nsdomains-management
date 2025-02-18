@@ -20,6 +20,9 @@ use Illuminate\Support\Facades\Log;
 */
 
 Route::get('/', function () {
+    if (auth()->check()) {
+        return redirect('/home');
+    }
     return redirect('/domains');
 });
 
@@ -38,12 +41,12 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
 // Authenticated user routes (both admin and regular users)
 Route::middleware(['auth'])->group(function () {
+    Route::get('/getquote/{uuid?}', [GetQuoteController::class, 'showForm'])->name('getquote.form');
+    Route::post('/getquote', [GetQuoteController::class, 'getQuote'])->name('getquote.process');
 });
 
 // Public routes
 Route::get('/public', [DomainController::class, 'publicList'])->name('domains.public');
-Route::get('/getquote/{uuid?}', [GetQuoteController::class, 'showForm'])->name('getquote.form');
-Route::post('/getquote', [GetQuoteController::class, 'getQuote'])->name('getquote.process');
 
 // Authentication routes
 Auth::routes(['register' => true]);
