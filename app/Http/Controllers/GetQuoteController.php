@@ -33,11 +33,12 @@ class GetQuoteController extends Controller
             if (!$results->isEmpty()) {
                 $createdAt = $results->first()->created_at; // Get the creation time of the first result
 
-                // Add registration price to each result
-                $results = $this->addRegistrationPrices($results);
-
-                // Calculate total price using only the 'price' field
+                // Calculate total price from the stored prices
                 $totalPrice = $results->sum('price');
+                \Log::info("Showing cached results with total price: {$totalPrice}");
+
+                // Add registration prices
+                $results = $this->addRegistrationPrices($results);
             }
         }
 
@@ -75,7 +76,7 @@ class GetQuoteController extends Controller
         $domains = array_filter($domains);
 
         $results = [];
-        $totalPrice = 0;
+        $totalPrice = 0; // Initialize total price
 
         // Initialize WHOIS client
         $whois = Factory::get()->createWhois();
@@ -118,13 +119,17 @@ class GetQuoteController extends Controller
             // Determine registration price from JSON data
             $registrationPrice = $this->getRegistrationPrice($jsonData, $tld);
 
+            // Calculate price for this domain
+            $calculatedPrice = $this->calculatePrice($tld, $daysLeft);
+            $totalPrice += $calculatedPrice; // Add to total
+
             $results[] = [
                 'domain' => $domain,
                 'expiration_date' => $expirationDate->toDateString(),
                 'days_left' => $daysLeft >= 0 ? $daysLeft : 0,
-                'price' => number_format($this->calculatePrice($tld, $daysLeft), 2), // Use existing price calculation
-                'registrar' => $whoisData['registrar'] ?? 'N/A', // Ensure registrar is included in results
-                'newReg' => number_format($registrationPrice, 2), // Add registration price to results
+                'price' => number_format($calculatedPrice, 2),
+                'registrar' => $whoisData['registrar'] ?? 'N/A',
+                'newReg' => number_format($registrationPrice, 2),
             ];
 
             // Save each result to the database
@@ -133,10 +138,12 @@ class GetQuoteController extends Controller
                 'domain' => $domain,
                 'expiration_date' => $expirationDate->toDateString(),
                 'days_left' => $daysLeft >= 0 ? $daysLeft : 0,
-                'price' => $this->calculatePrice($tld, $daysLeft), // Save calculated price
+                'price' => $calculatedPrice, // Save calculated price
                 'registrar' => $whoisData['registrar'] ?? 'N/A', // Save registrar information
             ]);
         }
+
+        \Log::info("Total price calculated: {$totalPrice}");
 
         // Add registration prices to the results
         $results = collect($results);
