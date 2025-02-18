@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class UserController extends Controller
 {
@@ -16,13 +17,8 @@ class UserController extends Controller
     public function dashboard()
     {
         $user = Auth::user();
+        Log::info('User accessed dashboard', ['user_id' => $user->id]);
         return view('dashboard.user', compact('user'));
-    }
-
-    public function showPaymentDetails()
-    {
-        $user = Auth::user();
-        return view('users.payment-details', compact('user'));
     }
 
     public function updatePaymentDetails(Request $request)
@@ -35,6 +31,7 @@ class UserController extends Controller
         $user->payment_details = $request->payment_details;
         $user->save();
 
+        Log::info('User updated payment details', ['user_id' => $user->id]);
         return redirect()->back()->with('status', 'Payment details updated successfully!');
     }
 } 
