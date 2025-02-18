@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\GetQuoteController;
 use App\Http\Controllers\Auth\LoginController;
 use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\UserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -45,6 +46,10 @@ Route::middleware(['auth', 'admin'])->group(function () {
 // Authenticated user routes (non-admin)
 Route::middleware(['auth'])->group(function () {
     Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+    
+    // Add these new routes for payment details
+    Route::get('/dashboard', [UserController::class, 'dashboard'])->name('dashboard');
+    Route::post('/user/payment', [UserController::class, 'updatePaymentDetails'])->name('user.payment.update');
 });
 
 // Public routes
