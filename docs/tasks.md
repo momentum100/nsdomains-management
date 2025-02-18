@@ -5,6 +5,7 @@
 - Add new fields to users table:
   - `namepros_name` (string)
   - `payment_details` (text)
+  - `is_admin` (boolean, default: false)
 
 ### Implementation Tasks
 - [ ] Create migration for new user fields
