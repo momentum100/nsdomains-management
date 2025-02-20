@@ -69,6 +69,7 @@
             <table class="table">
                 <thead>
                     <tr>
+                        <th>#</th>
                         <th><input type="checkbox" id="select-all"></th>
                         <th>Domain</th>
                         <th>Expiration Date</th>
@@ -80,6 +81,7 @@
                 <tbody>
                     @foreach($domains as $domain)
                         <tr>
+                            <td>{{ $loop->iteration }}</td>
                             <td><input type="checkbox" name="domains[]" value="{{ $domain->id }}" class="domain-checkbox"></td>
                             <td>{{ $domain->domain }}</td>
                             <td>{{ date('Y-m-d H:i:s', $domain->exp_date) }}</td>
