@@ -16,6 +16,12 @@
         <div>
             <h4>Active Domains by Registrar</h4>
             <ul>
+                <li>
+                    <a href="{{ route('domains.index') }}" 
+                       class="registrar-link {{ !isset($registrar) ? 'fw-bold text-primary' : '' }}">
+                        All Domains: {{ $total }} total
+                    </a>
+                </li>
                 @foreach($activeDomainsByRegistrar as $reg)
                     <li>
                         <a href="{{ route('domains.byRegistrar', ['registrar' => $reg->registrar]) }}" 
