@@ -16,8 +16,13 @@
         <div>
             <h4>Active Domains by Registrar</h4>
             <ul>
-                @foreach($activeDomainsByRegistrar as $registrar)
-                    <li>{{ $registrar->registrar }}: {{ $registrar->total }} domains</li>
+                @foreach($activeDomainsByRegistrar as $reg)
+                    <li>
+                        <a href="{{ route('domains.byRegistrar', ['registrar' => $reg->registrar]) }}" 
+                           class="registrar-link {{ isset($registrar) && $registrar == $reg->registrar ? 'fw-bold text-primary' : '' }}">
+                            {{ $reg->registrar }}: {{ $reg->total }} domains
+                        </a>
+                    </li>
                 @endforeach
             </ul>
         </div>
@@ -41,6 +46,15 @@
         <a href="{{ route('domains.index', ['status' => 'ACTIVE']) }}" class="btn btn-info mr-2">Active</a>
         <a href="{{ route('domains.index', ['status' => 'SOLD']) }}" class="btn btn-secondary">Sold</a>
     </div>
+
+    @if(isset($registrar))
+        <div class="mb-3">
+            <a href="{{ route('domains.index') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-times"></i> Clear Registrar Filter
+            </a>
+            <span class="ms-2">Showing domains for registrar: <strong>{{ $registrar }}</strong></span>
+        </div>
+    @endif
 
     @if($total > 0)
         <form id="bulk-action-form" action="{{ route('domains.destroy') }}" method="POST">
@@ -100,4 +114,15 @@
         });
     });
 </script>
+
+<style>
+    .registrar-link {
+        text-decoration: none;
+        color: inherit;
+    }
+    .registrar-link:hover {
+        text-decoration: underline;
+        color: #0d6efd;
+    }
+</style>
 @endsection

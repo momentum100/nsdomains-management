@@ -41,6 +41,10 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/domains/mark-as-sold', [DomainController::class, 'markAsSold'])->name('domains.markAsSold');
     Route::get('/domains', [DomainController::class, 'index'])->name('domains.index');
     Route::get('/domains/export', [DomainController::class, 'exportCsv'])->name('domains.export');
+
+    // Add new route for registrar filtering
+    Route::get('/domains/registrar/{registrar}', [DomainController::class, 'indexByRegistrar'])
+        ->name('domains.byRegistrar');
 });
 
 // Authenticated user routes (non-admin)

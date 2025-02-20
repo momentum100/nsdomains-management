@@ -194,4 +194,40 @@ class DomainController extends Controller
         
         return view('domains.public', compact('domains'));
     }
+
+    public function indexByRegistrar(Request $request, $registrar)
+    {
+        \Log::info("Filtering domains for registrar: $registrar");
+        
+        // Get domains filtered by registrar
+        $domains = Domain::select('*', DB::raw('DATEDIFF(FROM_UNIXTIME(exp_date), NOW()) as days_left'))
+                         ->where('registrar', $registrar)
+                         ->where('status', 'ACTIVE')  // Default to active domains
+                         ->orderBy('exp_date')
+                         ->get()
+                         ->map(function ($domain) {
+                             $domain->suggested_price = $this->calculatePrice($domain->days_left, $domain->domain);
+                             return $domain;
+                         });
+
+        // Get counts for the statistics
+        $total = $domains->count();
+        $active = Domain::where('status', 'ACTIVE')->count();
+        $sold = Domain::where('status', 'SOLD')->count();
+        $activeDomainsByRegistrar = Domain::select('registrar', DB::raw('count(*) as total'))
+                                          ->where('status', 'ACTIVE')
+                                          ->groupBy('registrar')
+                                          ->get();
+
+        \Log::info("Found $total domains for registrar: $registrar");
+
+        return view('domains.index', compact(
+            'domains',
+            'total',
+            'active',
+            'sold',
+            'activeDomainsByRegistrar',
+            'registrar'  // Pass the current registrar to highlight it in the view
+        ));
+    }
 }
