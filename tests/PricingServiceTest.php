@@ -10,8 +10,8 @@ require_once __DIR__ . '/../vendor/autoload.php';
 // Bootstrap the Laravel application
 $app = require_once __DIR__ . '/../bootstrap/app.php';
 
-// If needed, bootstrap the application kernel
-// $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+// Bootstrap the application kernel so that facades are set up
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 use App\Services\PricingService;
 
