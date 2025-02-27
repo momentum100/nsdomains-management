@@ -5,6 +5,9 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+// Bootstrap the Laravel application
+require_once __DIR__ . '/../bootstrap/app.php';
+
 // Autoload classes (ELI15: This tells PHP where to find the classes we need)
 require_once __DIR__ . '/../vendor/autoload.php';
 
