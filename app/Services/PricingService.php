@@ -33,7 +33,7 @@ class PricingService
         $isPremium = in_array($tld, $this->premiumTlds);
 
         if (!$isPremium) {
-            $maxAllowedPrice = $registrationPrice * 0.5;
+            $maxAllowedPrice = $basePrice * 0.5;
             $finalPrice = min($basePrice, $maxAllowedPrice);
             
             Log::info("Non-premium TLD calculation - Base price: {$basePrice}, Max allowed: {$maxAllowedPrice}, Final: {$finalPrice}");
