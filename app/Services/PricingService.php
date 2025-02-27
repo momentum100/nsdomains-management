@@ -24,8 +24,8 @@ class PricingService
         
         Log::info("Calculating price for TLD: {$tld}, Days left: {$daysLeft}, Registration price: {$registrationPrice}");
 
-        if ($daysLeft < 14) {
-            Log::info("Domain expiring soon (< 14 days), price set to 0");
+        if ($daysLeft <= 15) {
+            Log::info("Domain expiring soon (<= 15 days), price set to 0");
             return 0.0;
         }
 
@@ -59,7 +59,7 @@ class PricingService
 
     private function getBasePrice(int $daysLeft): float
     {
-        if ($daysLeft > 14 && $daysLeft < 31) {
+        if ($daysLeft >= 15 && $daysLeft < 31) {
             return 1.5;
         } elseif ($daysLeft > 30 && $daysLeft < 91) {
             return 3.0;
