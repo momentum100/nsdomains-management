@@ -4,11 +4,14 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Bootstrap the Laravel application
-require_once './bootstrap/app.php';
+// Autoload classes first
+require_once __DIR__ . '/../vendor/autoload.php';
 
-// Autoload classes
-require_once './vendor/autoload.php';
+// Bootstrap the Laravel application
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+
+// If needed, bootstrap the application kernel
+// $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 use App\Services\PricingService;
 
@@ -28,7 +31,7 @@ function extractTLD(string $domain): string
 
 // ---------------- Setup Dummy JSON data ----------------
 
-$jsonFilePath = './storage/app/namecheap.json';
+$jsonFilePath = __DIR__ . '/../storage/app/namecheap.json';
 
 $storageDir = dirname($jsonFilePath);
 if (!is_dir($storageDir)) {
