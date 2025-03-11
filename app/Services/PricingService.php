@@ -4,6 +4,40 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Log;
 
+/**
+ * PricingService - Domain Pricing Calculator
+ * 
+ * PRICING ALGORITHM EXPLANATION:
+ * 
+ * 1. INPUTS:
+ *    - TLD (Top Level Domain): like 'com', 'net', 'org', etc.
+ *    - Days Left: number of days until domain expires
+ * 
+ * 2. SPECIAL CASE:
+ *    - If domain is expiring soon (15 days or less) → Price = $0
+ * 
+ * 3. BASE PRICE CALCULATION:
+ *    - 15-30 days left → $1.50
+ *    - 31-90 days left → $3.00
+ *    - 91+ days left → $3.50
+ * 
+ * 4. PREMIUM vs NON-PREMIUM ADJUSTMENT:
+ *    - Premium TLDs ('com', 'net', 'org'):
+ *      → Final price = Base price (no discount)
+ *    - Non-premium TLDs (all others):
+ *      → Max allowed price = 50% of base price
+ *      → Final price = Lower of (base price OR max allowed price)
+ *        (This effectively gives non-premium TLDs a 50% discount)
+ * 
+ * 5. REGISTRATION PRICE:
+ *    - Used for logging/reference only
+ *    - Pulled from JSON data but doesn't affect final price calculation
+ * 
+ * ELI15: This service figures out how much to charge for domains based on:
+ * - How soon the domain expires (cheaper if expiring soon)
+ * - How popular the domain type is (com/net/org cost more than others)
+ * - Free if about to expire in 15 days or less
+ */
 class PricingService
 {
     private $jsonData;

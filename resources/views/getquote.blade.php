@@ -25,16 +25,28 @@ example.org">
     <div id="results" class="mt-5">
         @if($results->isNotEmpty())
             <h3>Previous Price Quotes:</h3>
+            
+            <!-- Pricing Algorithm Explanation -->
+            <div class="alert alert-info mb-3">
+                <h5>How We Calculate Prices:</h5>
+                <ul>
+                    <li>Domains expiring in 15 days or less: <strong>$0</strong></li>
+                    <li>Domains with 15-30 days left: <strong>$1.50</strong></li>
+                    <li>Domains with 31-90 days left: <strong>$3.00</strong></li>
+                    <li>Domains with 91+ days left: <strong>$3.50</strong></li>
+                    <li>Non-premium TLDs (other than .com, .net, .org) receive a 50% discount</li>
+                </ul>
+            </div>
+            
             <table class="table table-bordered">
                 <thead>
                     <tr>
                         <th>Domain</th>
                         <th>Registrar</th>
-                        <th>New Reg Price ($)</th> <!-- New column header -->
+                        <th>New Reg Price ($)</th>
                         <th>Expiration Date</th>
                         <th>Days Left</th>
                         <th>Price ($)</th>
-                        
                     </tr>
                 </thead>
                 <tbody>
@@ -42,11 +54,10 @@ example.org">
                         <tr>
                             <td>{{ $result->domain }}</td>
                             <td>{{ $result->registrar }}</td>
-                            <td>{{ $result->newReg }}</td> <!-- New column data -->
+                            <td>{{ $result->newReg }}</td>
                             <td>{{ $result->expiration_date }}</td>
                             <td>{{ $result->days_left }}</td>
                             <td>{{ $result->price }}</td>
-                            
                         </tr>
                     @endforeach
                 </tbody>
@@ -126,7 +137,21 @@ document.getElementById('quote-form').addEventListener('submit', async function(
         const data = await response.json();
 
         if (data.status === 'success') {
-            let html = '<h3>Quotes:</h3><table class="table table-bordered"><thead><tr><th>Domain</th><th>Registrar</th><th>Expiration Date</th><th>Days Left</th><th>Price ($)</th><th>New Registration Price ($)</th></tr></thead><tbody>';
+            let html = '<h3>Quotes:</h3>';
+            
+            // Add pricing algorithm explanation
+            html += `<div class="alert alert-info mb-3">
+                <h5>How We Calculate Prices:</h5>
+                <ul>
+                    <li>Domains expiring in 15 days or less: <strong>$0</strong></li>
+                    <li>Domains with 15-30 days left: <strong>$1.50</strong></li>
+                    <li>Domains with 31-90 days left: <strong>$3.00</strong></li>
+                    <li>Domains with 91+ days left: <strong>$3.50</strong></li>
+                    <li>Non-premium TLDs (other than .com, .net, .org) receive a 50% discount</li>
+                </ul>
+            </div>`;
+            
+            html += '<table class="table table-bordered"><thead><tr><th>Domain</th><th>Registrar</th><th>New Reg Price ($)</th><th>Expiration Date</th><th>Days Left</th><th>Price ($)</th></tr></thead><tbody>';
 
             data.data.forEach(domain => {
                 if(domain.error){
@@ -138,10 +163,10 @@ document.getElementById('quote-form').addEventListener('submit', async function(
                     html += `<tr>
                                 <td>${domain.domain}</td>
                                 <td>${domain.registrar}</td>
+                                <td>${domain.newReg}</td>
                                 <td>${domain.expiration_date}</td>
                                 <td>${domain.days_left}</td>
                                 <td>${domain.price}</td>
-                                <td>${domain.newReg}</td>
                              </tr>`;
                 }
             });

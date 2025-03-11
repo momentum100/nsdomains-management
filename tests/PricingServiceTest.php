@@ -44,7 +44,7 @@ $dummyPricingData = [
     ["Tld" => "info", "Register" => ["Price" => 3.50]],
     ["Tld" => "creditcard", "Register" => ["Price" => 4.00]],
     ["Tld" => "business", "Register" => ["Price" => 4.00]],
-    ["Tld" => "com", "Register" => ["Price" => 5.00]],
+    ["Tld" => "com", "Register" => ["Price" => 10.00]],
     ["Tld" => "buzz", "Register" => ["Price" => 4.00]],
     ["Tld" => "online", "Register" => ["Price" => 4.00]],
     ["Tld" => "me", "Register" => ["Price" => 4.50]],
