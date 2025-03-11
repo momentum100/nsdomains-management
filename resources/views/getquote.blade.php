@@ -43,11 +43,11 @@ example.org">
                     <tr>
                         <th>Domain</th>
                         <th>Registrar</th>
+                        <th>New Registration</th>
                         <th>Expiration Date</th>
                         <th>Days Left</th>
                         <th>Renewal Price</th>
-                        <th>New Registration</th>
-                        <th>Push Status</th>
+                        <th>In System</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -55,10 +55,10 @@ example.org">
                         <tr>
                             <td>{{ $result->domain }}</td>
                             <td>{{ $result->registrar }}</td>
+                            <td>${{ $result->newReg }}</td>
                             <td>{{ $result->expiration_date }}</td>
                             <td>{{ $result->days_left }}</td>
                             <td>${{ number_format($result->price, 2) }}</td>
-                            <td>${{ $result->newReg }}</td>
                             <td class="text-center">
                                 @if(isset($result->push_status) && $result->push_status)
                                     <span style="color: green; font-size: 1.2em;">✓</span>
@@ -75,9 +75,9 @@ example.org">
                 </tbody>
                 <tfoot>
                     <tr>
-                        <td colspan="4" class="text-right"><strong>Total:</strong></td>
+                        <td colspan="5" class="text-right"><strong>Total:</strong></td>
                         <td><strong>${{ $total_price }}</strong></td>
-                        <td colspan="2"></td>
+                        <td></td>
                     </tr>
                 </tfoot>
             </table>
