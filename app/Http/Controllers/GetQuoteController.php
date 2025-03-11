@@ -86,9 +86,26 @@ class GetQuoteController extends Controller
         // Split the domains by new lines and sanitize
         $domains = preg_split('/\r\n|\r|\n/', $request->input('domains'));
         $domains = array_filter(array_map('trim', $domains));
+        
+        // Count original domains for logging
+        $originalCount = count($domains);
+        
+        // Convert all domains to lowercase and remove duplicates
+        $domains = array_unique(array_map('strtolower', $domains));
+        
+        // Count after deduplication for logging
+        $afterDedupeCount = count($domains);
+        $removedCount = $originalCount - $afterDedupeCount;
+        
+        // Log the deduplication results
+        Log::info("Domain deduplication: Original count: {$originalCount}, After deduplication: {$afterDedupeCount}, Removed: {$removedCount}");
+
+        // Get the authenticated user's ID or null if not logged in
+        $userId = auth()->check() ? auth()->id() : null;
+        Log::info("Processing domains for " . ($userId ? "user ID: {$userId}" : "guest user"));
 
         $uuid = Str::uuid(); // Generate a UUID for this set of results
-        $processedData = $this->domainService->processDomains($domains, $uuid);
+        $processedData = $this->domainService->processDomains($domains, $uuid, $userId);
 
         return response()->json([
             'status' => 'success',

@@ -18,12 +18,24 @@ class DomainService
         $this->pricingService = $pricingService;
     }
 
-    // ELI15: Process a list of domains and return their information
-    public function processDomains(array $domains, string $uuid): array
+    /**
+     * Process a list of domains and store results
+     *
+     * @param array $domains
+     * @param string $uuid
+     * @param int|null $userId
+     * @return array
+     */
+    public function processDomains(array $domains, string $uuid, ?int $userId = null)
     {
+        // Log the number of domains being processed and user info
+        Log::info("Processing " . count($domains) . " domains with UUID: {$uuid}" . 
+                  ($userId ? " for user ID: {$userId}" : " for guest user"));
+        
         $results = [];
         $totalPrice = 0;
-
+        
+        // Process each domain...
         foreach ($domains as $domain) {
             if (!$this->isValidDomain($domain)) {
                 $results[] = [
@@ -42,10 +54,21 @@ class DomainService
 
             $totalPrice += floatval($domainInfo['price']);
             $results[] = $domainInfo;
+
+            // When saving to the database, include the user_id
+            DomainResult::create([
+                'uuid' => $uuid,
+                'domain' => $domain,
+                'user_id' => $userId, // Store the user ID (null for guests)
+                'expiration_date' => $domainInfo['expiration_date'],
+                'days_left' => $domainInfo['days_left'],
+                'price' => $domainInfo['price'],
+                'registrar' => $domainInfo['registrar'],
+                'newReg' => $domainInfo['newReg'],
+            ]);
         }
-
-        Log::info("Total price calculated: {$totalPrice}");
-
+        
+        // Return results...
         return [
             'results' => $results,
             'total_price' => number_format($totalPrice, 2)
@@ -70,16 +93,6 @@ class DomainService
         
         $calculatedPrice = $this->pricingService->calculatePrice($tld, $daysLeft);
         $registrationPrice = $this->pricingService->getRegistrationPrice($tld);
-
-        // Save to database
-        DomainResult::create([
-            'uuid' => $uuid,
-            'domain' => $domain,
-            'expiration_date' => $expirationDate->toDateString(),
-            'days_left' => $daysLeft >= 0 ? $daysLeft : 0,
-            'price' => $calculatedPrice,
-            'registrar' => $whoisData['registrar'],
-        ]);
 
         return [
             'domain' => $domain,
