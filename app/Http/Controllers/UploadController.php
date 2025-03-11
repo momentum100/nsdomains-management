@@ -168,6 +168,16 @@ class UploadController extends Controller
                 $expDate = $row['Expiration Date'];
                 $expTimestamp = strtotime($expDate);
                 break;
+            case 'fabulous':
+                // ELI15: For fabulous registrar, we extract domain from domain_name column and expiration date from exdate column
+                $domain = $row['domain_name'] ?? null;
+                $expDate = $row['exdate'] ?? null;
+                // ELI15: Log the raw date format to help with debugging
+                Log::info('Fabulous raw date format: ' . $expDate);
+                $expTimestamp = $expDate ? strtotime($expDate) : null;
+                // ELI15: Log the parsed timestamp to verify conversion worked
+                Log::info('Fabulous parsed timestamp: ' . ($expTimestamp ? date('Y-m-d H:i:s', $expTimestamp) : 'failed'));
+                break;
             default:
                 // If registrar doesn't match any case, return null.
                 return null;
