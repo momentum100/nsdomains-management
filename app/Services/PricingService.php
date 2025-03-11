@@ -25,18 +25,18 @@ use Illuminate\Support\Facades\Log;
  *    - Premium TLDs ('com', 'net', 'org'):
  *      → Final price = Base price (no discount)
  *    - Non-premium TLDs (all others):
- *      → Max allowed price = 50% of base price
+ *      → Max allowed price = Lower of (50% of base price OR 50% of registration price)
  *      → Final price = Lower of (base price OR max allowed price)
- *        (This effectively gives non-premium TLDs a 50% discount)
  * 
  * 5. REGISTRATION PRICE:
- *    - Used for logging/reference only
- *    - Pulled from JSON data but doesn't affect final price calculation
+ *    - Used in price calculation for non-premium TLDs
+ *    - Pulled from JSON data
  * 
  * ELI15: This service figures out how much to charge for domains based on:
  * - How soon the domain expires (cheaper if expiring soon)
  * - How popular the domain type is (com/net/org cost more than others)
  * - Free if about to expire in 15 days or less
+ * - For less popular domains, we use the lower of half the base price or half the registration price
  */
 class PricingService
 {
@@ -67,10 +67,15 @@ class PricingService
         $isPremium = in_array($tld, $this->premiumTlds);
 
         if (!$isPremium) {
-            $maxAllowedPrice = $basePrice * 0.5;
+            // ELI15: For non-premium domains, take the lower of half base price or half registration price
+            $halfBasePrice = $basePrice * 0.5;
+            $halfRegPrice = $registrationPrice * 0.5;
+            $maxAllowedPrice = min($halfBasePrice, $halfRegPrice);
+            
+            // ELI15: Final price is the lower of base price or max allowed price
             $finalPrice = min($basePrice, $maxAllowedPrice);
             
-            Log::info("Non-premium TLD calculation - Base price: {$basePrice}, Max allowed: {$maxAllowedPrice}, Final: {$finalPrice}");
+            Log::info("Non-premium TLD calculation - Base price: {$basePrice}, Half base price: {$halfBasePrice}, Half reg price: {$halfRegPrice}, Max allowed: {$maxAllowedPrice}, Final: {$finalPrice}");
             
             return $finalPrice;
         }
