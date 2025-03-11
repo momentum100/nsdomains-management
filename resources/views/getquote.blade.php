@@ -59,15 +59,11 @@ example.org">
                             <td>{{ $result->days_left }}</td>
                             <td>${{ number_format($result->price, 2) }}</td>
                             <td>${{ $result->newReg }}</td>
-                            <td>
-                                @if($result->push_status)
-                                    <span class="text-success" title="Domain is in the system">
-                                        <i class="fas fa-check-circle"></i>
-                                    </span>
+                            <td class="text-center">
+                                @if(isset($result->push_status) && $result->push_status)
+                                    <span style="color: green; font-size: 1.2em;">✓</span>
                                 @else
-                                    <span class="text-muted" title="Domain not in system">
-                                        <i class="fas fa-times-circle"></i>
-                                    </span>
+                                    <span style="color: #999;">-</span>
                                 @endif
                             </td>
                         </tr>
