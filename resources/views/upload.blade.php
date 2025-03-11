@@ -13,20 +13,20 @@
         @csrf
         <div class="form-group">
             <label for="registrar">Registrar</label>
-            <select name="registrar" id="registrar" class="form-control">
+            <select name="registrar" id="registrar" class="form-control" required>
+                <option value="">Select Registrar</option>
                 <option value="cosmotown">Cosmotown</option>
                 <option value="dynadot">Dynadot</option>
-                <option value="spaceship">Spaceship.com</option>
-                <option value="namecheap">NameCheap</option>
+                <option value="spaceship">Spaceship</option>
+                <option value="namecheap">Namecheap</option>
                 <option value="porkbun">Porkbun</option>
-                <option value="regery">Regery</option>
-                <option value="gandi">Gandi</option>
-                <option value="namebright">NameBright</option>
+                <option value="namebright">Namebright</option>
                 <option value="godaddy">GoDaddy</option>
                 <option value="sav">SAV</option>
-                <option value="namesilo">NameSilo</option>
+                <option value="regery">Regery</option>
                 <option value="namecom">Name.com</option>
-                <option value="123reg.co.uk">123Reg.co.uk</option>
+                <option value="123reg.co.uk">123reg.co.uk</option>
+                <option value="fabulous">Fabulous</option>
             </select>
         </div>
         <div class="form-group">
