@@ -46,7 +46,7 @@ example.org">
                         <th>New Registration</th>
                         <th>Expiration Date</th>
                         <th>Days Left</th>
-                        <th>Renewal Price</th>
+                        <th>Price</th>
                         <th>In System</th>
                     </tr>
                 </thead>
