@@ -12,9 +12,16 @@ class DomainResult extends Model
     protected $fillable = [
         'uuid',
         'domain',
+        'user_id',
         'registrar',
         'expiration_date',
         'days_left',
         'price',
+            
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }
