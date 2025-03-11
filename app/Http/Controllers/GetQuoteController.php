@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Iodev\Whois\Factory;
 use Illuminate\Support\Str;
 use App\Models\DomainResult;
+use App\Models\Domain;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use App\Services\DomainService;
@@ -35,8 +36,11 @@ class GetQuoteController extends Controller
         $results = collect(); // Initialize as an empty Collection
         $totalPrice = 0;
         $createdAt = null;
+        $processedCount = 0; // Counter for processed domains
 
         if ($uuid) {
+            Log::info("Loading cached results for UUID: {$uuid}");
+            
             // Fetch the results using the UUID from DomainResult and sort by 'days_left'
             $results = DomainResult::where('uuid', $uuid)
                 ->orderBy('days_left', 'asc') // Sort by 'days_left' in ascending order
@@ -44,14 +48,21 @@ class GetQuoteController extends Controller
 
             // Calculate total price if results are found
             if (!$results->isEmpty()) {
+                $processedCount = $results->count();
+                Log::info("Found {$processedCount} domains in cached results");
+                
                 $createdAt = $results->first()->created_at; // Get the creation time of the first result
 
                 // Calculate total price from the stored prices
                 $totalPrice = $results->sum('price');
-                \Log::info("Showing cached results with total price: {$totalPrice}");
+                Log::info("Showing cached results with total price: {$totalPrice}");
 
                 // Add registration prices
                 $results = $this->addRegistrationPrices($results);
+                
+                // Check if domains exist in the domains table and add push status
+                $results = $this->checkDomainsExistence($results);
+                Log::info("Added push status to cached results");
             }
         }
 
@@ -59,6 +70,7 @@ class GetQuoteController extends Controller
             'results' => $results,
             'total_price' => number_format($totalPrice, 2),
             'created_at' => $createdAt ? $createdAt->format('Y-m-d H:i:s') : null, // Format the timestamp
+            'processed_count' => $processedCount, // Pass the counter to the view
         ]);
     }
 
@@ -100,19 +112,41 @@ class GetQuoteController extends Controller
         // Log the deduplication results
         Log::info("Domain deduplication: Original count: {$originalCount}, After deduplication: {$afterDedupeCount}, Removed: {$removedCount}");
 
+        // Filter out domains that already exist in the system
+        $existingDomains = Domain::whereIn('domain', $domains)->pluck('domain')->toArray();
+        $skippedCount = count($existingDomains);
+        
+        if ($skippedCount > 0) {
+            Log::info("Skipping {$skippedCount} domains that already exist in the system");
+            $domains = array_diff($domains, $existingDomains);
+            Log::info("Remaining domains to process: " . count($domains));
+        }
+        
+        // If no domains left to process after filtering
+        if (empty($domains)) {
+            return response()->json([
+                'status' => 'warning',
+                'message' => 'All domains already exist in our system. No new domains to process.',
+                'skipped_domains' => $existingDomains
+            ], 200);
+        }
+
         // Get the authenticated user's ID or null if not logged in
         $userId = auth()->check() ? auth()->id() : null;
         Log::info("Processing domains for " . ($userId ? "user ID: {$userId}" : "guest user"));
 
         $uuid = Str::uuid(); // Generate a UUID for this set of results
         $processedData = $this->domainService->processDomains($domains, $uuid, $userId);
-
+        
+        // Add information about skipped domains to the response
         return response()->json([
             'status' => 'success',
             'data' => $processedData['results'],
             'uuid' => $uuid,
             'total_price' => $processedData['total_price'],
             'link' => url("/getquote/{$uuid}"), // Generate a link to the results
+            'skipped_count' => $skippedCount,
+            'skipped_domains' => $skippedCount > 0 ? $existingDomains : []
         ]);
     }
 
@@ -135,6 +169,39 @@ class GetQuoteController extends Controller
                 $result->newReg = number_format($registrationPrice, 2);
             }
 
+            return $result;
+        });
+    }
+    
+    /**
+     * Check if domains exist in the domains table and add push status.
+     * 
+     * @param \Illuminate\Support\Collection $results
+     * @return \Illuminate\Support\Collection
+     */
+    private function checkDomainsExistence($results)
+    {
+        // Get all domain names from results
+        $domainNames = $results->pluck('domain')->toArray();
+        Log::info("Checking existence for " . count($domainNames) . " domains");
+        
+        // Get all matching domains from the domains table - without status check
+        $existingDomains = Domain::whereIn('domain', $domainNames)
+                                ->pluck('domain')
+                                ->toArray();
+        
+        Log::info("Found " . count($existingDomains) . " domains already in system");
+        
+        // Add push status to each result
+        return $results->map(function ($result) use ($existingDomains) {
+            $domain = is_array($result) ? $result['domain'] : $result->domain;
+            
+            if (is_array($result)) {
+                $result['push_status'] = in_array($domain, $existingDomains) ? '✓' : '';
+            } else {
+                $result->push_status = in_array($domain, $existingDomains) ? '✓' : '';
+            }
+            
             return $result;
         });
     }
