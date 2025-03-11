@@ -38,31 +38,64 @@ example.org">
                 </ul>
             </div>
             
-            <table class="table table-bordered">
+            <table class="table table-striped">
                 <thead>
                     <tr>
                         <th>Domain</th>
                         <th>Registrar</th>
-                        <th>New Reg Price ($)</th>
                         <th>Expiration Date</th>
                         <th>Days Left</th>
-                        <th>Price ($)</th>
+                        <th>Renewal Price</th>
+                        <th>New Registration</th>
+                        <th>Push Status</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($results as $result)
+                    @forelse($results as $result)
                         <tr>
                             <td>{{ $result->domain }}</td>
                             <td>{{ $result->registrar }}</td>
-                            <td>{{ $result->newReg }}</td>
                             <td>{{ $result->expiration_date }}</td>
                             <td>{{ $result->days_left }}</td>
-                            <td>{{ $result->price }}</td>
+                            <td>${{ number_format($result->price, 2) }}</td>
+                            <td>${{ $result->newReg }}</td>
+                            <td>
+                                @if($result->push_status)
+                                    <span class="text-success" title="Domain is in the system">
+                                        <i class="fas fa-check-circle"></i>
+                                    </span>
+                                @else
+                                    <span class="text-muted" title="Domain not in system">
+                                        <i class="fas fa-times-circle"></i>
+                                    </span>
+                                @endif
+                            </td>
                         </tr>
-                    @endforeach
+                    @empty
+                        <tr>
+                            <td colspan="7" class="text-center">No domains to display</td>
+                        </tr>
+                    @endforelse
                 </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4" class="text-right"><strong>Total:</strong></td>
+                        <td><strong>${{ $total_price }}</strong></td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
             </table>
-            <h4>Total Price: ${{ $total_price }}</h4>
+
+            @if($processed_count > 0)
+                <div class="alert alert-info">
+                    <p>Processed {{ $processed_count }} domains. 
+                    @if($results->where('push_status', '✓')->count() > 0)
+                        {{ $results->where('push_status', '✓')->count() }} domains are already in the system.
+                    @endif
+                    </p>
+                </div>
+            @endif
+
             @if($created_at)
                 <p>Results cached on: {{ $created_at }}</p>
             @endif

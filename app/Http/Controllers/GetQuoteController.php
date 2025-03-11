@@ -112,41 +112,19 @@ class GetQuoteController extends Controller
         // Log the deduplication results
         Log::info("Domain deduplication: Original count: {$originalCount}, After deduplication: {$afterDedupeCount}, Removed: {$removedCount}");
 
-        // Filter out domains that already exist in the system
-        $existingDomains = Domain::whereIn('domain', $domains)->pluck('domain')->toArray();
-        $skippedCount = count($existingDomains);
-        
-        if ($skippedCount > 0) {
-            Log::info("Skipping {$skippedCount} domains that already exist in the system");
-            $domains = array_diff($domains, $existingDomains);
-            Log::info("Remaining domains to process: " . count($domains));
-        }
-        
-        // If no domains left to process after filtering
-        if (empty($domains)) {
-            return response()->json([
-                'status' => 'warning',
-                'message' => 'All domains already exist in our system. No new domains to process.',
-                'skipped_domains' => $existingDomains
-            ], 200);
-        }
-
         // Get the authenticated user's ID or null if not logged in
         $userId = auth()->check() ? auth()->id() : null;
         Log::info("Processing domains for " . ($userId ? "user ID: {$userId}" : "guest user"));
 
         $uuid = Str::uuid(); // Generate a UUID for this set of results
         $processedData = $this->domainService->processDomains($domains, $uuid, $userId);
-        
-        // Add information about skipped domains to the response
+
         return response()->json([
             'status' => 'success',
             'data' => $processedData['results'],
             'uuid' => $uuid,
             'total_price' => $processedData['total_price'],
             'link' => url("/getquote/{$uuid}"), // Generate a link to the results
-            'skipped_count' => $skippedCount,
-            'skipped_domains' => $skippedCount > 0 ? $existingDomains : []
         ]);
     }
 
