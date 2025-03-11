@@ -22,21 +22,21 @@ example.org">
         <button type="button" class="btn btn-success mt-3" id="download-csv-button">Download CSV</button>
     </form>
 
+    <!-- Pricing Algorithm Explanation - Now only in one place -->
+    <div class="alert alert-info mb-3 mt-3">
+        <h5>How We Calculate Prices:</h5>
+        <ul>
+            <li>Domains expiring in 15 days or less: <strong>$0</strong></li>
+            <li>Domains with 15-30 days left: <strong>$1.50</strong></li>
+            <li>Domains with 31-90 days left: <strong>$3.00</strong></li>
+            <li>Domains with 91+ days left: <strong>$3.50</strong></li>
+            <li>Non-premium TLDs (other than .com, .net, .org) receive a 50% discount OR half of registration price, whichever is less</li>
+        </ul>
+    </div>
+
     <div id="results" class="mt-5">
         @if($results->isNotEmpty())
             <h3>Previous Price Quotes:</h3>
-            
-            <!-- Pricing Algorithm Explanation -->
-            <div class="alert alert-info mb-3">
-                <h5>How We Calculate Prices:</h5>
-                <ul>
-                    <li>Domains expiring in 15 days or less: <strong>$0</strong></li>
-                    <li>Domains with 15-30 days left: <strong>$1.50</strong></li>
-                    <li>Domains with 31-90 days left: <strong>$3.00</strong></li>
-                    <li>Domains with 91+ days left: <strong>$3.50</strong></li>
-                    <li>Non-premium TLDs (other than .com, .net, .org) receive a 50% discount</li>
-                </ul>
-            </div>
             
             <table class="table table-striped">
                 <thead>
@@ -167,18 +167,6 @@ document.getElementById('quote-form').addEventListener('submit', async function(
 
         if (data.status === 'success') {
             let html = '<h3>Quotes:</h3>';
-            
-            // Add pricing algorithm explanation
-            html += `<div class="alert alert-info mb-3">
-                <h5>How We Calculate Prices:</h5>
-                <ul>
-                    <li>Domains expiring in 15 days or less: <strong>$0</strong></li>
-                    <li>Domains with 15-30 days left: <strong>$1.50</strong></li>
-                    <li>Domains with 31-90 days left: <strong>$3.00</strong></li>
-                    <li>Domains with 91+ days left: <strong>$3.50</strong></li>
-                    <li>Non-premium TLDs (other than .com, .net, .org) receive a 50% discount</li>
-                </ul>
-            </div>`;
             
             html += '<table class="table table-bordered"><thead><tr><th>Domain</th><th>Registrar</th><th>New Reg Price ($)</th><th>Expiration Date</th><th>Days Left</th><th>Price ($)</th></tr></thead><tbody>';
 
