@@ -5,7 +5,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 
-class CreateQuotePaymentsTable extends Migration
+// Renamed class with a unique suffix to avoid conflicts
+class CreateQuotePaymentsTable20250311 extends Migration
 {
     /**
      * Run the migration.
@@ -14,6 +15,8 @@ class CreateQuotePaymentsTable extends Migration
      */
     public function up()
     {
+        // Log the class name for debugging
+        Log::info('Running migration with class: ' . __CLASS__);
         Log::info('Starting migration: creating quote_payments table');
         
         Schema::create('quote_payments', function (Blueprint $table) {
