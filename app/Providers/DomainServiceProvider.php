@@ -8,6 +8,7 @@ use App\Services\PricingService;
 use App\Services\DomainService;
 use App\Services\ProxyService;
 use Illuminate\Support\Facades\Log;
+use App\Services\SocksProxyLoader;
 
 class DomainServiceProvider extends ServiceProvider
 {
@@ -24,7 +25,7 @@ class DomainServiceProvider extends ServiceProvider
             Log::info("Registering WhoisService in container");
             // Get the ProxyService from the container
             $proxyService = $app->make(ProxyService::class);
-            return new WhoisService($proxyService);
+            return new WhoisService($app->make(SocksProxyLoader::class));
         });
 
         $this->app->singleton(PricingService::class, function ($app) {
@@ -36,6 +37,10 @@ class DomainServiceProvider extends ServiceProvider
                 $app->make(WhoisService::class),
                 $app->make(PricingService::class)
             );
+        });
+
+        $this->app->singleton(SocksProxyLoader::class, function ($app) {
+            return new SocksProxyLoader();
         });
     }
 } 
