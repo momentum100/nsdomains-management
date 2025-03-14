@@ -6,12 +6,12 @@ use Iodev\Whois\Factory;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use App\Services\ProxyService;
 use Exception;
+use App\Services\SocksProxyLoader;
 
 class WhoisService
 {
-    private $proxyService;
+    private $loader;
     private $counter = 0;
     private $cacheEnabled = true;
     private $cacheTtl = 8640000; // 100 days (was 86400 - 24 hours)
@@ -19,25 +19,16 @@ class WhoisService
     /**
      * Create a new WHOIS service instance.
      * 
-     * @param ProxyService|null $proxyService
+     * @param SocksProxyLoader|null $loader
      */
-    public function __construct(ProxyService $proxyService = null)
+    public function __construct(SocksProxyLoader $loader = null)
     {
         Log::info("WhoisService initializing");
-        if ($proxyService) {
-            $this->proxyService = $proxyService;
-            Log::info("WhoisService: ProxyService manually injected");
-        } else {
-            // Try to resolve from the service container
-            try {
-                $this->proxyService = app(ProxyService::class);
-                Log::info("WhoisService: ProxyService auto-resolved from container");
-            } catch (Exception $e) {
-                Log::error("WhoisService: Failed to resolve ProxyService: " . $e->getMessage());
-                // Create an empty proxy service or handle the error appropriately
-                throw new Exception("WhoisService requires ProxyService to function properly");
-            }
-        }
+        
+        // Set up our loader with proxy support
+        $this->loader = $loader ?? new SocksProxyLoader();
+        
+        Log::info("WhoisService initialized with SocksProxyLoader");
     }
 
     /**
@@ -60,72 +51,58 @@ class WhoisService
             return $cachedData;
         }
         
-        return $this->proxyService->executeWithRetry(function() use ($domain, $cacheKey) {
-            // Get cURL options for the proxy with random IP
-            $curlOptions = $this->proxyService->getCurlOptions(true); // true = use random IP
-            
-            // Create a custom Whois factory that uses our proxy WITH CURL LOADER
+        try {
+            // Create a Whois instance with our custom loader that already has retry capability
             $factory = new Factory();
+            $whois = $factory->createWhois($this->loader);
             
-            // Explicitly create a CURL loader instead of the default socket loader
-            $whois = $factory->createWhois(Factory::LOADER_CURL);
+            // Get the WHOIS info - loader will handle retries automatically
+            Log::info("Sending WHOIS request for {$domain} via proxy");
+            $info = $whois->loadDomainInfo($domain);
             
-            // Set the cURL options directly on the Whois loader
-            $loader = $whois->getLoader();
-            Log::info("Using loader type: " . get_class($loader));
-            foreach ($curlOptions as $option => $value) {
-                $loader->setCurlOption($option, $value);
-            }
-            
-            try {
-                // Get the WHOIS info
-                Log::info("Sending WHOIS request for {$domain} via proxy");
-                $info = $whois->loadDomainInfo($domain);
-                
-                if (!$info) {
-                    Log::warning("No WHOIS information found for {$domain}");
-                    return [
-                        'domain' => $domain,
-                        'registrar' => 'Unknown',
-                        'expiration_date' => null,
-                        'days_left' => null,
-                        'error' => 'No WHOIS information found'
-                    ];
-                }
-                
-                // Process the information
-                $expirationDate = $info->expirationDate;
-                $registrar = $info->registrar;
-                
-                Log::info("WHOIS request successful for {$domain}. Registrar: {$registrar}");
-                
-                // Calculate days left if expiration date exists
-                $daysLeft = null;
-                if ($expirationDate) {
-                    $expDate = new \DateTime("@{$expirationDate}");
-                    $now = new \DateTime();
-                    $daysLeft = $now->diff($expDate)->days;
-                }
-                
-                $result = [
+            if (!$info) {
+                Log::warning("No WHOIS information found for {$domain}");
+                return [
                     'domain' => $domain,
-                    'registrar' => $registrar ?? 'Unknown',
-                    'expiration_date' => $expirationDate ? date('Y-m-d', $expirationDate) : null,
-                    'days_left' => $daysLeft,
+                    'registrar' => 'Unknown',
+                    'expiration_date' => null,
+                    'days_left' => null,
+                    'error' => 'No WHOIS information found'
                 ];
-                
-                // Cache the result
-                if ($this->cacheEnabled) {
-                    Cache::put($cacheKey, $result, $this->cacheTtl);
-                    Log::info("Cached WHOIS data for {$domain}");
-                }
-                
-                return $result;
-            } catch (Exception $e) {
-                Log::error("Error querying WHOIS for {$domain}: " . $e->getMessage());
-                throw $e;
             }
-        });
+            
+            // Process the information
+            $expirationDate = $info->expirationDate;
+            $registrar = $info->registrar;
+            
+            Log::info("WHOIS request successful for {$domain}. Registrar: {$registrar}");
+            
+            // Calculate days left if expiration date exists
+            $daysLeft = null;
+            if ($expirationDate) {
+                $expDate = new \DateTime("@{$expirationDate}");
+                $now = new \DateTime();
+                $daysLeft = $now->diff($expDate)->days;
+            }
+            
+            $result = [
+                'domain' => $domain,
+                'registrar' => $registrar ?? 'Unknown',
+                'expiration_date' => $expirationDate ? date('Y-m-d', $expirationDate) : null,
+                'days_left' => $daysLeft,
+            ];
+            
+            // Cache the result
+            if ($this->cacheEnabled) {
+                Cache::put($cacheKey, $result, $this->cacheTtl);
+                Log::info("Cached WHOIS data for {$domain}");
+            }
+            
+            return $result;
+        } catch (Exception $e) {
+            Log::error("Error querying WHOIS for {$domain}: " . $e->getMessage());
+            throw $e;
+        }
     }
     
     /**

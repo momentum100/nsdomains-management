@@ -56,6 +56,10 @@ class ProxyService
             CURLOPT_PROXYTYPE => CURLPROXY_SOCKS5,
             CURLOPT_SSL_VERIFYPEER => false, // Don't verify SSL
             CURLOPT_TIMEOUT => 30, // Set a reasonable timeout
+            CURLOPT_VERBOSE => true, // Enable verbose output
+            CURLOPT_CONNECTTIMEOUT => 5, // Connection timeout in seconds
+            // Force IPv4 to avoid IPv6 issues with some proxies
+            CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
         ];
     }
     

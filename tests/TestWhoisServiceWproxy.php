@@ -4,176 +4,288 @@
 // Include the autoloader
 require_once __DIR__ . '/../vendor/autoload.php';
 
+// Use required libraries
+use Iodev\Whois\Factory;
+use Iodev\Whois\Loaders\CurlLoader;
+use Iodev\Whois\Exceptions\ConnectionException;
+use Iodev\Whois\Helpers\TextHelper;
+
 // Configure error reporting for the test
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // Create our own simplified versions of the Laravel facades
 class Logger {
-    public static function info($message) {
-        echo "[INFO] " . $message . PHP_EOL;
+    public static function info($message, $context = []) {
+        $contextStr = empty($context) ? '' : ' ' . json_encode($context);
+        echo "[INFO] " . $message . $contextStr . PHP_EOL;
     }
     
-    public static function warning($message) {
-        echo "[WARNING] " . $message . PHP_EOL;
+    public static function warning($message, $context = []) {
+        $contextStr = empty($context) ? '' : ' ' . json_encode($context);
+        echo "[WARNING] " . $message . $contextStr . PHP_EOL;
     }
     
-    public static function error($message) {
-        echo "[ERROR] " . $message . PHP_EOL;
+    public static function error($message, $context = []) {
+        $contextStr = empty($context) ? '' : ' ' . json_encode($context);
+        echo "[ERROR] " . $message . $contextStr . PHP_EOL;
+    }
+    
+    public static function debug($message, $context = []) {
+        $contextStr = empty($context) ? '' : ' ' . json_encode($context);
+        echo "[DEBUG] " . $message . $contextStr . PHP_EOL;
     }
 }
 
-// Create a standalone version of the WhoisService without caching
-class StandaloneWhoisService {
-    private $proxyService;
-    private $counter = 0;
+// Create a standalone version of the combined SocksProxyLoader
+class StandaloneSocksProxyLoader extends CurlLoader
+{
+    private $proxyUrl;
+    private $maxRetries;
+    private $retryDelay;
+    private $requestCounter = 0;
     
-    public function __construct($proxyService) {
-        $this->proxyService = $proxyService;
+    /**
+     * Create a new SOCKS proxy loader instance.
+     * 
+     * @param string $proxyUrl The SOCKS5 proxy URL with authentication
+     * @param int $maxRetries Maximum number of retry attempts
+     * @param int $retryDelay Base delay between retries in milliseconds
+     */
+    public function __construct(
+        string $proxyUrl = 'socks5://acaf2e69bfcad31446035-zone-custom-region-eu:4a267823f5caaeac707529fd4c32e91e@p2.mangoproxy.com:2333', 
+        int $maxRetries = 3,
+        int $retryDelay = 500
+    ) {
+        parent::__construct(); // Initialize parent CurlLoader
+        $this->proxyUrl = $proxyUrl;
+        $this->maxRetries = $maxRetries;
+        $this->retryDelay = $retryDelay;
+        
+        // Set default options including proxy
+        $this->applyProxyOptions();
+        
+        Logger::info("SocksProxyLoader initialized with SOCKS5 proxy");
+    }
+    
+    /**
+     * Apply proxy options to the loader
+     * 
+     * @param bool $randomIp Whether to use a random IP for this request
+     * @return $this
+     */
+    public function applyProxyOptions(bool $randomIp = true)
+    {
+        // Create proxy URL - add random parameter if requested to get different IP
+        $proxyUrl = $this->proxyUrl;
+        if ($randomIp) {
+            // Append a random ID to cause the proxy to use a different IP
+            $randomId = mt_rand(1000, 9999);
+            $proxyUrl .= "?rand={$randomId}";
+            Logger::info("Setting up SOCKS5 proxy with random ID {$randomId}");
+        }
+        
+        // Set curl options
+        $this->options = [
+            CURLOPT_PROXY => $proxyUrl,
+            CURLOPT_PROXYTYPE => CURLPROXY_SOCKS5,
+            CURLOPT_SSL_VERIFYPEER => false, // Don't verify SSL
+            CURLOPT_TIMEOUT => 30, // Set a reasonable timeout
+            CURLOPT_VERBOSE => true, // Enable verbose output for debugging
+            CURLOPT_CONNECTTIMEOUT => 5, // Connection timeout in seconds
+            // Force IPv4 to avoid IPv6 issues with some proxies
+            CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+        ];
+        
+        return $this;
+    }
+    
+    /**
+     * Query WHOIS server with retry mechanism
+     * 
+     * @param string $whoisHost
+     * @param string $query
+     * @return string
+     * @throws ConnectionException
+     */
+    public function query($whoisHost, $query)
+    {
+        $this->requestCounter++;
+        $attemptCount = 0;
+        $lastException = null;
+        
+        Logger::info("WHOIS Query #{$this->requestCounter} for host: {$whoisHost}");
+        
+        // Try with retries
+        do {
+            $attemptCount++;
+            
+            // For each new attempt, get a new random IP
+            if ($attemptCount > 1) {
+                $this->applyProxyOptions(true);
+            }
+            
+            Logger::info("WHOIS attempt #{$attemptCount} via SOCKS proxy");
+            
+            try {
+                // Try to execute the actual query
+                $result = $this->executeQuery($whoisHost, $query);
+                Logger::info("WHOIS query successful on attempt #{$attemptCount}");
+                return $result;
+            } catch (Exception $e) {
+                $lastException = $e;
+                Logger::warning("WHOIS query failed on attempt #{$attemptCount}: {$e->getMessage()}");
+                
+                // Only delay if we're going to retry
+                if ($attemptCount < $this->maxRetries) {
+                    // Calculate delay with exponential backoff
+                    $delayMs = $this->retryDelay * pow(2, $attemptCount - 1);
+                    
+                    // Add random jitter (0-50% of the delay)
+                    $jitterMs = mt_rand(0, (int)($delayMs * 0.5));
+                    $totalDelayMs = $delayMs + $jitterMs;
+                    
+                    Logger::info("Waiting {$totalDelayMs}ms before retry attempt");
+                    usleep($totalDelayMs * 1000); // Convert to microseconds
+                }
+            }
+        } while ($attemptCount < $this->maxRetries);
+        
+        // If we get here, all retries failed
+        Logger::error("All {$this->maxRetries} WHOIS query attempts failed");
+        throw $lastException ?? new ConnectionException("All query attempts failed");
+    }
+    
+    /**
+     * Execute the actual WHOIS query using cURL
+     * 
+     * @param string $whoisHost
+     * @param string $query
+     * @return string
+     * @throws ConnectionException
+     */
+    private function executeQuery($whoisHost, $query)
+    {
+        // Create input stream with query
+        $input = fopen('php://temp', 'r+');
+        fwrite($input, "{$query}\r\n");
+        rewind($input);
+        
+        // Initialize cURL
+        $curl = curl_init();
+        
+        // Set our base options
+        $baseOptions = [
+            CURLOPT_RETURNTRANSFER => true,
+            // Use direct host:port instead of telnet protocol
+            CURLOPT_URL => "{$whoisHost}:43",
+            CURLOPT_INFILE => $input,
+            CURLOPT_UPLOAD => true,
+        ];
+        
+        // Merge with our custom options from the constructor
+        $options = array_replace($baseOptions, $this->options);
+        
+        // Set all options
+        curl_setopt_array($curl, $options);
+        
+        // Execute and get result
+        $result = curl_exec($curl);
+        $errstr = curl_error($curl);
+        $errno = curl_errno($curl);
+        
+        // Log results
+        Logger::debug("WHOIS Response", [
+            'success' => ($result !== false),
+            'error' => $errstr,
+            'code' => $errno
+        ]);
+        
+        curl_close($curl);
+        fclose($input);
+        
+        if ($result === false) {
+            throw new ConnectionException($errstr, $errno);
+        }
+        
+        return $this->validateResponse(TextHelper::toUtf8($result));
+    }
+}
+
+// Create a standalone version of the WhoisService that uses our loader
+class StandaloneWhoisService {
+    private $loader;
+    private $counter = 0;
+    private $cacheEnabled = false; // Disable caching for test
+    
+    public function __construct($loader) {
+        $this->loader = $loader;
+        Logger::info("StandaloneWhoisService initialized with SocksProxyLoader");
     }
     
     public function getDomainInfo($domain) {
         $this->counter++;
-        Logger::info("Processing domain #" . $this->counter . ": " . $domain);
+        Logger::info("Processing domain #{$this->counter}: {$domain}");
         
-        // Cache is completely disabled - always perform live lookup
-        return $this->proxyService->executeWithRetry(function() use ($domain) {
-            // In a real test, this would call the actual WHOIS service
-            // For demo purposes, let's simulate responses
+        try {
+            // Create a Whois instance with our custom loader
+            $factory = new Factory();
+            $whois = $factory->createWhois($this->loader);
             
-            // Add a small delay to simulate network request
-            usleep(mt_rand(300, 800) * 1000);
+            // Get the WHOIS info - loader will handle retries automatically
+            Logger::info("Sending REAL WHOIS request for {$domain} via proxy");
+            $info = $whois->loadDomainInfo($domain);
             
-            // Get the TLD
-            $parts = explode('.', $domain);
-            $tld = end($parts);
+            if (!$info) {
+                Logger::warning("No WHOIS information found for {$domain}");
+                return [
+                    'domain' => $domain,
+                    'registrar' => 'Unknown',
+                    'expiration_date' => null,
+                    'days_left' => null,
+                    'error' => 'No WHOIS information found'
+                ];
+            }
             
-            // Generate mock data for testing purposes
-            $registrars = [
-                'MarkMonitor Inc.',
-                'GoDaddy.com, LLC',
-                'Namecheap, Inc.',
-                'Network Solutions, LLC',
-                'DreamHost, LLC',
-                'NameSilo, LLC',
-                'Dynadot, LLC',
-                'Epik, Inc.',
-                'Tucows Domains Inc.'
+            // Process the information
+            $expirationDate = $info->expirationDate;
+            $registrar = $info->registrar;
+            
+            Logger::info("WHOIS request successful for {$domain}. Registrar: {$registrar}");
+            
+            // Calculate days left if expiration date exists
+            $daysLeft = null;
+            if ($expirationDate) {
+                $expDate = new DateTime("@{$expirationDate}");
+                $now = new DateTime();
+                $daysLeft = $now->diff($expDate)->days;
+            }
+            
+            $result = [
+                'domain' => $domain,
+                'registrar' => $registrar ?? 'Unknown',
+                'expiration_date' => $expirationDate ? date('Y-m-d', $expirationDate) : null,
+                'days_left' => $daysLeft,
+                'creation_date' => $info->creationDate ? date('Y-m-d', $info->creationDate) : null,
+                'states' => $info->states ?? [],
+                'raw_data' => $info->getResponse()->getText(), // Include raw data for debugging
             ];
             
-            // Use specific data for known domains, random for others
-            if ($domain === 'google.com') {
-                return [
-                    'domain' => $domain,
-                    'registrar' => 'MarkMonitor Inc.',
-                    'expiration_date' => '2028-09-14',
-                    'days_left' => 1200,
-                ];
-            } else if ($domain === 'vittle.shop') {
-                return [
-                    'domain' => $domain,
-                    'registrar' => 'GoDaddy.com, LLC',
-                    'expiration_date' => '2025-08-21',
-                    'days_left' => 150,
-                ];
-            } else {
-                // Generate random expiration date 1-3 years in the future
-                $expirationYear = date('Y') + mt_rand(1, 3);
-                $expirationMonth = str_pad(mt_rand(1, 12), 2, '0', STR_PAD_LEFT);
-                $expirationDay = str_pad(mt_rand(1, 28), 2, '0', STR_PAD_LEFT);
-                $expirationDate = $expirationYear . '-' . $expirationMonth . '-' . $expirationDay;
-                
-                // Calculate random days left
-                $today = new DateTime();
-                $expiry = new DateTime($expirationDate);
-                $daysLeft = $today->diff($expiry)->days;
-                
-                return [
-                    'domain' => $domain,
-                    'registrar' => $registrars[array_rand($registrars)],
-                    'expiration_date' => $expirationDate,
-                    'days_left' => $daysLeft,
-                ];
-            }
-        });
-    }
-}
-
-// Create a standalone version of the ProxyService
-class StandaloneProxyService {
-    private $proxyUrl;
-    private $maxRetries;
-    private $retryDelay;
-    private $attemptCount = 0;
-    
-    public function __construct($proxyUrl, $maxRetries = 3, $retryDelay = 500) {
-        $this->proxyUrl = $proxyUrl;
-        $this->maxRetries = $maxRetries;
-        $this->retryDelay = $retryDelay;
-    }
-    
-    public function getCurlOptions($randomIp = false) {
-        $proxyUrl = $this->proxyUrl;
-        if ($randomIp) {
-            $randomId = mt_rand(1000, 9999);
-            $proxyUrl .= "?rand=" . $randomId;
-            Logger::info("Setting up SOCKS5 proxy with random ID " . $randomId);
+            return $result;
+        } catch (Exception $e) {
+            Logger::error("Error querying WHOIS for {$domain}: " . $e->getMessage());
+            throw $e;
         }
-        
-        return [
-            'proxy' => $proxyUrl,
-            'verify_ssl' => false,
-            'timeout' => 30,
-        ];
-    }
-    
-    public function executeWithRetry($callback) {
-        $this->attemptCount = 0;
-        $lastException = null;
-        
-        do {
-            $this->attemptCount++;
-            Logger::info("Proxy request attempt #" . $this->attemptCount);
-            
-            try {
-                $result = $callback();
-                Logger::info("Proxy request successful on attempt #" . $this->attemptCount);
-                return $result;
-            } catch (Exception $e) {
-                $lastException = $e;
-                Logger::warning("Proxy request failed on attempt #" . $this->attemptCount . ": " . $e->getMessage());
-                
-                if ($this->attemptCount < $this->maxRetries) {
-                    $delayMs = $this->retryDelay;
-                    for ($i = 1; $i < $this->attemptCount; $i++) {
-                        $delayMs = $delayMs * 2;
-                    }
-                    
-                    $jitterMs = mt_rand(0, (int)($delayMs * 0.5));
-                    $totalDelayMs = $delayMs + $jitterMs;
-                    
-                    $nextAttempt = $this->attemptCount + 1;
-                    Logger::info("Waiting " . $totalDelayMs . "ms before retry attempt #" . $nextAttempt);
-                    usleep($totalDelayMs * 1000);
-                }
-            }
-        } while ($this->attemptCount < $this->maxRetries);
-        
-        throw $lastException ?? new Exception("All proxy request attempts failed");
     }
 }
 
-echo "=== WHOIS Lookup Test ===\n";
+echo "=== REAL WHOIS Lookup Test with SocksProxyLoader ===\n";
 echo "Starting test at: " . date('Y-m-d H:i:s') . "\n\n";
 
-// Create our standalone test services
-$proxyService = new StandaloneProxyService(
-    'socks5://acaf2e69bfcad31446035-zone-custom-region-eu:4a267823f5caaeac707529fd4c32e91e@p2.mangoproxy.com:2333',
-    3,  // Max retries
-    500 // Retry delay in ms
-);
-
-$whoisService = new StandaloneWhoisService($proxyService);
+// Create our standalone loader and service
+$proxyUrl = 'socks5://acaf2e69bfcad31446035-zone-custom-region-eu:4a267823f5caaeac707529fd4c32e91e@p2.mangoproxy.com:2333';
+$loader = new StandaloneSocksProxyLoader($proxyUrl, 3, 500);
+$whoisService = new StandaloneWhoisService($loader);
 
 // Counter for testing
 $counter = 0;
@@ -198,11 +310,22 @@ function testDomain($whoisService, $domain, &$counter, &$totalTime, &$successCou
         echo "Results:\n";
         echo "- Domain: " . $result['domain'] . "\n";
         echo "- Registrar: " . $result['registrar'] . "\n";
+        echo "- Creation: " . ($result['creation_date'] ?? 'Unknown') . "\n";
         echo "- Expiration: " . ($result['expiration_date'] ?? 'Unknown') . "\n";
         echo "- Days Left: " . ($result['days_left'] ?? 'Unknown') . "\n";
         
+        if (!empty($result['states'])) {
+            echo "- States: " . implode(', ', $result['states']) . "\n";
+        }
+        
         if (isset($result['error'])) {
             echo "- Error: " . $result['error'] . "\n";
+        }
+        
+        // Show a portion of the raw data for verification
+        if (isset($result['raw_data'])) {
+            $rawPreview = substr($result['raw_data'], 0, 200) . '...';
+            echo "- Raw data preview: " . str_replace("\n", " ", $rawPreview) . "\n";
         }
         
         $successCount++;
@@ -221,6 +344,14 @@ function testDomain($whoisService, $domain, &$counter, &$totalTime, &$successCou
 $domains = [
     'google.com',
     'vittle.shop',
+    'BestFour.shop',
+    'Jotiv.shop',
+    'Fulura.shop',
+    'Unlunar.shop',
+    'Foretops.shop',
+    'Tissual.shop',
+    'Discotire.shop',
+    'Lapidly.shop',
     'videoscriptgpt.com',
     'aiserialnumber.com',
     'aimodelnumber.com',
@@ -235,7 +366,7 @@ $domains = [
 ];
 
 echo "Total domains to check: " . count($domains) . "\n";
-echo "Using proxy: " . $proxyService->getCurlOptions()['proxy'] . "\n\n";
+echo "Using proxy: " . $loader->options[CURLOPT_PROXY] . "\n\n";
 
 // Run tests
 foreach ($domains as $domain) {
@@ -247,7 +378,7 @@ foreach ($domains as $domain) {
     
     // Small delay between tests to avoid overwhelming the proxy
     if (next($domains) !== false) {
-        $delay = mt_rand(500, 1500) / 1000;
+        $delay = mt_rand(800, 2000) / 1000; // Longer delay for real requests
         echo "Waiting " . $delay . " seconds before next test...\n";
         usleep($delay * 1000000);
     }
@@ -264,6 +395,6 @@ echo "Test completed at: " . date('Y-m-d H:i:s') . "\n";
 
 // Output proxy statistics
 echo "\nProxy Details:\n";
-echo "- URL: " . $proxyService->getCurlOptions()['proxy'] . "\n";
+echo "- URL: " . $proxyUrl . "\n";
 echo "- Max retries: 3\n";
 echo "- Initial retry delay: 500ms\n";
