@@ -6,6 +6,7 @@ use Iodev\Whois\Factory;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use App\Services\ProxyService;
 use Exception;
 
 class WhoisService
@@ -18,11 +19,25 @@ class WhoisService
     /**
      * Create a new WHOIS service instance.
      * 
-     * @param ProxyService $proxyService
+     * @param ProxyService|null $proxyService
      */
-    public function __construct(ProxyService $proxyService)
+    public function __construct(ProxyService $proxyService = null)
     {
-        $this->proxyService = $proxyService;
+        Log::info("WhoisService initializing");
+        if ($proxyService) {
+            $this->proxyService = $proxyService;
+            Log::info("WhoisService: ProxyService manually injected");
+        } else {
+            // Try to resolve from the service container
+            try {
+                $this->proxyService = app(ProxyService::class);
+                Log::info("WhoisService: ProxyService auto-resolved from container");
+            } catch (Exception $e) {
+                Log::error("WhoisService: Failed to resolve ProxyService: " . $e->getMessage());
+                // Create an empty proxy service or handle the error appropriately
+                throw new Exception("WhoisService requires ProxyService to function properly");
+            }
+        }
     }
 
     /**
@@ -49,12 +64,15 @@ class WhoisService
             // Get cURL options for the proxy with random IP
             $curlOptions = $this->proxyService->getCurlOptions(true); // true = use random IP
             
-            // Create a custom Whois factory that uses our proxy
+            // Create a custom Whois factory that uses our proxy WITH CURL LOADER
             $factory = new Factory();
-            $whois = $factory->createWhois();
+            
+            // Explicitly create a CURL loader instead of the default socket loader
+            $whois = $factory->createWhois(Factory::LOADER_CURL);
             
             // Set the cURL options directly on the Whois loader
             $loader = $whois->getLoader();
+            Log::info("Using loader type: " . get_class($loader));
             foreach ($curlOptions as $option => $value) {
                 $loader->setCurlOption($option, $value);
             }
