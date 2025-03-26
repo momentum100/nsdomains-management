@@ -97,6 +97,42 @@
     @else
         <p>No domains found.</p>
     @endif
+
+    <!-- Add this form before or after your existing domains table -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Filter by Domain List</h4>
+        </div>
+        <div class="card-body">
+            <form action="{{ route('domains.filterByList') }}" method="POST">
+                @csrf
+                <div class="form-group">
+                    <label for="domain_list">Paste domains (one per line)</label>
+                    <textarea 
+                        class="form-control" 
+                        id="domain_list" 
+                        name="domain_list" 
+                        rows="5" 
+                        placeholder="domain1.com&#10;domain2.com&#10;domain3.com"
+                    ></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">Filter Domains</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add this after your domains table -->
+    @if(isset($filteredDomains) && $filteredDomains->count() > 0)
+        <div class="card mt-4">
+            <div class="card-header">
+                <h4>Filtered Results</h4>
+            </div>
+            <div class="card-body">
+                <p>Total Domains Found: {{ $filteredDomains->count() }}</p>
+                <p>Total Suggested Price: ${{ number_format($filteredDomains->sum('suggested_price'), 2) }}</p>
+            </div>
+        </div>
+    @endif
 </div>
 
 <script>

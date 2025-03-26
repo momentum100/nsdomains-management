@@ -45,6 +45,10 @@ Route::middleware(['auth', 'admin'])->group(function () {
     // Add new route for registrar filtering
     Route::get('/domains/registrar/{registrar}', [DomainController::class, 'indexByRegistrar'])
         ->name('domains.byRegistrar');
+
+    // Add new route for domain list filtering
+    Route::post('/domains/filter-list', [DomainController::class, 'filterByList'])
+        ->name('domains.filterByList');
 });
 
 // Authenticated user routes (non-admin)

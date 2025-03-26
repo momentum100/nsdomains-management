@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Domain;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class DomainController extends Controller
 {
@@ -229,5 +230,48 @@ class DomainController extends Controller
             'activeDomainsByRegistrar',
             'registrar'  // Pass the current registrar to highlight it in the view
         ));
+    }
+
+    public function filterByList(Request $request)
+    {
+        // Log the start of filtering for debugging
+        Log::info('Starting domain list filtering');
+        
+        // Validate the request
+        $request->validate([
+            'domain_list' => 'required|string'
+        ]);
+        
+        // Convert textarea input to array and clean it
+        $domains = collect(explode("\n", $request->domain_list))
+            ->map(fn($domain) => trim($domain))
+            ->filter(fn($domain) => !empty($domain))
+            ->unique()
+            ->values()
+            ->toArray();
+        
+        // Log the domains being searched
+        Log::info('Searching for domains:', ['count' => count($domains)]);
+        
+        // Get the filtered domains
+        $filteredDomains = Domain::whereIn('name', $domains)->get();
+        
+        // Log the results
+        Log::info('Found domains:', ['count' => $filteredDomains->count()]);
+        
+        // Get all domains for the regular table
+        $domains = Domain::query();
+        
+        // Apply any existing filters you have
+        // ... your existing filtering logic ...
+        
+        $domains = $domains->paginate(10);
+        
+        // Return the view with both regular and filtered results
+        return view('domains.index', [
+            'domains' => $domains,
+            'filteredDomains' => $filteredDomains,
+            'totalPrice' => $filteredDomains->sum('suggested_price')
+        ]);
     }
 }
