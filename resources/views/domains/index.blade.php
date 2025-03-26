@@ -62,7 +62,7 @@
         </div>
     @endif
 
-    <!-- Add this before your main domains table -->
+    <!-- At the top of the page, after the buttons but before the stats -->
     <div class="card mb-4">
         <div class="card-header" role="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="false" aria-controls="filterCollapse" style="cursor: pointer;">
             <div class="d-flex justify-content-between align-items-center">
@@ -73,19 +73,16 @@
         
         <div class="collapse" id="filterCollapse">
             <div class="card-body">
-                <form action="{{ route('domains.filterByList') }}" method="POST">
-                    @csrf
+                <form action="{{ route('domains.index') }}" method="GET">
                     <div class="form-group">
-                        <label for="domain_list">Paste domains (one domain per line, without commas)</label>
+                        <label for="domain_list">Paste domains (one domain per line)</label>
                         <textarea 
                             class="form-control" 
                             id="domain_list" 
                             name="domain_list" 
                             rows="5" 
-                            placeholder="domain1.com
-domain2.com
-domain3.com"
-                        >{{ old('domain_list') }}</textarea>
+                            placeholder="domain1.com&#10;domain2.com&#10;domain3.com"
+                        >{{ request('domain_list') }}</textarea>
                         <small class="form-text text-muted">Example format:
                             <pre class="mt-2">gorillize.com
 microtaxes.com
@@ -93,19 +90,56 @@ nearbuy.org</pre>
                         </small>
                     </div>
                     <button type="submit" class="btn btn-primary mt-3">Filter Domains</button>
+                    @if(request()->has('domain_list'))
+                        <a href="{{ route('domains.index') }}" class="btn btn-outline-secondary mt-3 ml-2">Clear Filter</a>
+                    @endif
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- Add filtered results summary if exists -->
-    @if(isset($filteredDomains) && $filteredDomains->count() > 0)
+    <!-- After the stats section, show filtered results if any -->
+    @if(isset($isFiltering) && $isFiltering && isset($filteredDomains))
         <div class="alert alert-info mb-4">
             <strong>Filtered Results:</strong> 
             Found {{ $filteredDomains->count() }} domains. 
-            Total Suggested Price: ${{ number_format($filteredDomains->sum('suggested_price'), 2) }}
-            <div class="mt-2">
-                <small>Matched domains: {{ $filteredDomains->pluck('domain')->implode(', ') }}</small>
+            Total Suggested Price: ${{ number_format($totalPrice, 2) }}
+            
+            @if($filteredDomains->count() > 0)
+                <div class="mt-2">
+                    <small>Matched domains: {{ $filteredDomains->pluck('domain')->implode(', ') }}</small>
+                </div>
+            @endif
+        </div>
+        
+        <!-- Optionally show a table with just the filtered domains -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Filtered Domains</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Domain</th>
+                                <th>Expiry Date</th>
+                                <th>Registrar</th>
+                                <th>Suggested Price</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($filteredDomains as $domain)
+                            <tr>
+                                <td>{{ $domain->domain }}</td>
+                                <td>{{ date('Y-m-d', $domain->exp_date) }}</td>
+                                <td>{{ $domain->registrar }}</td>
+                                <td>${{ number_format($domain->suggested_price, 2) }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     @endif

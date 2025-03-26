@@ -24,26 +24,56 @@ class DomainController extends Controller
 
     public function index(Request $request)
     {
-        $status = $request->query('status', 'ACTIVE'); // Get status from query, default to ACTIVE
-        $domains = Domain::select('*', DB::raw('DATEDIFF(FROM_UNIXTIME(exp_date), NOW()) as days_left'))
-                         ->where('status', $status) // Filter by status
-                         ->orderBy('exp_date')
-                         ->get()
-                         ->map(function ($domain) {
-                             // Add suggested price to each domain
-                             $domain->suggested_price = $this->calculatePrice($domain->days_left, $domain->domain);
-                             return $domain;
-                         });
-        $total = $domains->count();
+        // Start with all domains
+        $query = Domain::query();
+        
+        // Track if we're filtering by domain list
+        $isFiltering = false;
+        $filteredDomains = null;
+        
+        // Handle domain list filtering
+        if ($request->has('domain_list') && !empty($request->domain_list)) {
+            Log::info('Filtering domains by list');
+            
+            // Parse and clean domain list
+            $domainList = collect(explode("\n", $request->domain_list))
+                ->map(fn($domain) => trim($domain))
+                ->filter(fn($domain) => !empty($domain))
+                ->map(fn($domain) => str_replace([',', '"', "'"], '', $domain))
+                ->unique()
+                ->values()
+                ->toArray();
+            
+            Log::info('Searching for domains:', ['count' => count($domainList)]);
+            
+            // Store the filtered domains separately
+            $filteredDomains = Domain::whereIn('domain', $domainList)->get();
+            
+            Log::info('Found domains:', ['count' => $filteredDomains->count()]);
+            $isFiltering = true;
+        }
+        
+        // Apply other existing filters (if any)
+        // ...
+        
+        // Get statistics for all domains (regardless of filtering)
+        $total = Domain::count();
         $active = Domain::where('status', 'ACTIVE')->count();
         $sold = Domain::where('status', 'SOLD')->count();
-        $activeDomainsByRegistrar = Domain::select('registrar', DB::raw('count(*) as total'))
-                                          ->where('status', 'ACTIVE')
-                                          ->groupBy('registrar')
-                                          ->get();
-        \Log::info('Total domains: ' . $total);
-
-        return view('domains.index', compact('domains', 'total', 'status', 'active', 'sold', 'activeDomainsByRegistrar')); // Pass status and counts to view
+        
+        // Paginate results for the main table
+        $domains = $query->paginate(10);
+        
+        return view('domains.index', [
+            'domains' => $domains,
+            'total' => $total,
+            'active' => $active, 
+            'sold' => $sold,
+            'isFiltering' => $isFiltering,
+            'filteredDomains' => $filteredDomains,
+            // Only calculate total price if we have filtered domains
+            'totalPrice' => $filteredDomains ? $filteredDomains->sum('suggested_price') : 0
+        ]);
     }
 
     /**
