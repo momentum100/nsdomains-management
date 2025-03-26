@@ -93,14 +93,9 @@ example.org"></textarea>
                     @php
                         // Calculate total price of all filtered domains
                         $totalPrice = $domains->sum('suggested_price');
-                        // Count of domains with prices
-                        $domainsWithPrice = $domains->count();
                     @endphp
                     <strong>Showing {{ $total }} filtered domains.</strong> 
                     <strong>Total suggested price: ${{ number_format($totalPrice, 2) }}</strong>
-                    @if($domainsWithPrice > 0)
-                        <strong>(Avg: ${{ number_format($totalPrice / $domainsWithPrice, 2) }} per domain)</strong>
-                    @endif
                     <div class="mt-2">
                         <a href="{{ route('domains.index') }}" class="btn btn-sm btn-outline-primary">
                             Clear filter to see all domains
