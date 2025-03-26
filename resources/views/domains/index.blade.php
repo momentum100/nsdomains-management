@@ -62,6 +62,41 @@
         </div>
     @endif
 
+    <!-- Add this form wherever appropriate in the domains.index view -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Filter by Domain List</h5>
+        </div>
+        <div class="card-body">
+            <form action="{{ route('domains.filter') }}" method="POST">
+                @csrf
+                <div class="form-group">
+                    <label for="domain_list">Paste Domains (one per line)</label>
+                    <textarea class="form-control" id="domain_list" name="domain_list" rows="5" 
+                        placeholder="example.com
+example.net
+example.org"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">
+                    <i class="fas fa-filter"></i> Filter Domains
+                </button>
+                @if(isset($isFiltered) && $isFiltered)
+                    <a href="{{ route('domains.index') }}" class="btn btn-secondary mt-3 ml-2">
+                        <i class="fas fa-times"></i> Clear Filter
+                    </a>
+                @endif
+            </form>
+            
+            <!-- Counter to show filtered results -->
+            @if(isset($isFiltered) && $isFiltered)
+                <div class="alert alert-info mt-3">
+                    <strong>Showing {{ $total }} filtered domains.</strong> 
+                    <a href="{{ route('domains.index') }}">Clear filter to see all domains.</a>
+                </div>
+            @endif
+        </div>
+    </div>
+
     @if($total > 0)
         <form id="bulk-action-form" action="{{ route('domains.destroy') }}" method="POST">
             @csrf
