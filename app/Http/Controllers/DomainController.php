@@ -61,6 +61,13 @@ class DomainController extends Controller
         $active = Domain::where('status', 'ACTIVE')->count();
         $sold = Domain::where('status', 'SOLD')->count();
         
+        // Get counts of active domains by registrar
+        $activeDomainsByRegistrar = Domain::where('status', 'ACTIVE')
+            ->select('registrar', DB::raw('count(*) as total'))
+            ->groupBy('registrar')
+            ->orderBy('total', 'desc')
+            ->get();
+        
         // Paginate results for the main table
         $domains = $query->paginate(10);
         
@@ -69,6 +76,7 @@ class DomainController extends Controller
             'total' => $total,
             'active' => $active, 
             'sold' => $sold,
+            'activeDomainsByRegistrar' => $activeDomainsByRegistrar,
             'isFiltering' => $isFiltering,
             'filteredDomains' => $filteredDomains,
             // Only calculate total price if we have filtered domains
