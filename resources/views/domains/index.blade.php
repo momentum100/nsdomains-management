@@ -62,6 +62,44 @@
         </div>
     @endif
 
+    <!-- Add this before your main domains table -->
+    <div class="card mb-4">
+        <div class="card-header" role="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="false" aria-controls="filterCollapse" style="cursor: pointer;">
+            <div class="d-flex justify-content-between align-items-center">
+                <span>Filter by Domain List</span>
+                <i class="fas fa-chevron-down"></i>
+            </div>
+        </div>
+        
+        <div class="collapse" id="filterCollapse">
+            <div class="card-body">
+                <form action="{{ route('domains.filterByList') }}" method="POST">
+                    @csrf
+                    <div class="form-group">
+                        <label for="domain_list">Paste domains (one per line)</label>
+                        <textarea 
+                            class="form-control" 
+                            id="domain_list" 
+                            name="domain_list" 
+                            rows="5" 
+                            placeholder="domain1.com&#10;domain2.com&#10;domain3.com"
+                        ></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-3">Filter Domains</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add filtered results summary if exists -->
+    @if(isset($filteredDomains) && $filteredDomains->count() > 0)
+        <div class="alert alert-info mb-4">
+            <strong>Filtered Results:</strong> 
+            Found {{ $filteredDomains->count() }} domains. 
+            Total Suggested Price: ${{ number_format($filteredDomains->sum('suggested_price'), 2) }}
+        </div>
+    @endif
+
     @if($total > 0)
         <form id="bulk-action-form" action="{{ route('domains.destroy') }}" method="POST">
             @csrf
@@ -96,42 +134,6 @@
         </form>
     @else
         <p>No domains found.</p>
-    @endif
-
-    <!-- Add this form before or after your existing domains table -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h4>Filter by Domain List</h4>
-        </div>
-        <div class="card-body">
-            <form action="{{ route('domains.filterByList') }}" method="POST">
-                @csrf
-                <div class="form-group">
-                    <label for="domain_list">Paste domains (one per line)</label>
-                    <textarea 
-                        class="form-control" 
-                        id="domain_list" 
-                        name="domain_list" 
-                        rows="5" 
-                        placeholder="domain1.com&#10;domain2.com&#10;domain3.com"
-                    ></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary mt-3">Filter Domains</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Add this after your domains table -->
-    @if(isset($filteredDomains) && $filteredDomains->count() > 0)
-        <div class="card mt-4">
-            <div class="card-header">
-                <h4>Filtered Results</h4>
-            </div>
-            <div class="card-body">
-                <p>Total Domains Found: {{ $filteredDomains->count() }}</p>
-                <p>Total Suggested Price: ${{ number_format($filteredDomains->sum('suggested_price'), 2) }}</p>
-            </div>
-        </div>
     @endif
 </div>
 
