@@ -234,40 +234,38 @@ class DomainController extends Controller
 
     public function filterByList(Request $request)
     {
-        // Log the start of filtering for debugging
+        // Log the start of filtering
         Log::info('Starting domain list filtering');
         
-        // Validate the request
         $request->validate([
             'domain_list' => 'required|string'
         ]);
         
         // Convert textarea input to array and clean it
         $domains = collect(explode("\n", $request->domain_list))
-            ->map(fn($domain) => trim($domain))
-            ->filter(fn($domain) => !empty($domain))
+            ->map(fn($domain) => trim($domain)) // Remove whitespace
+            ->filter(fn($domain) => !empty($domain)) // Remove empty lines
+            ->map(fn($domain) => str_replace([',', '"', "'"], '', $domain)) // Remove any commas and quotes
             ->unique()
             ->values()
             ->toArray();
         
-        // Log the domains being searched
-        Log::info('Searching for domains:', ['count' => count($domains)]);
+        // Log the cleaned domains
+        Log::info('Searching for domains:', ['domains' => $domains]);
         
-        // Get the filtered domains
-        $filteredDomains = Domain::whereIn('name', $domains)->get();
+        // Use the correct column name 'domain'
+        $filteredDomains = Domain::whereIn('domain', $domains)->get();
         
         // Log the results
-        Log::info('Found domains:', ['count' => $filteredDomains->count()]);
+        Log::info('Found domains:', [
+            'count' => $filteredDomains->count(),
+            'domains' => $filteredDomains->pluck('domain')->toArray()
+        ]);
         
         // Get all domains for the regular table
         $domains = Domain::query();
-        
-        // Apply any existing filters you have
-        // ... your existing filtering logic ...
-        
         $domains = $domains->paginate(10);
         
-        // Return the view with both regular and filtered results
         return view('domains.index', [
             'domains' => $domains,
             'filteredDomains' => $filteredDomains,

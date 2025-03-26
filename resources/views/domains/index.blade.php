@@ -76,14 +76,21 @@
                 <form action="{{ route('domains.filterByList') }}" method="POST">
                     @csrf
                     <div class="form-group">
-                        <label for="domain_list">Paste domains (one per line)</label>
+                        <label for="domain_list">Paste domains (one domain per line, without commas)</label>
                         <textarea 
                             class="form-control" 
                             id="domain_list" 
                             name="domain_list" 
                             rows="5" 
-                            placeholder="domain1.com&#10;domain2.com&#10;domain3.com"
-                        ></textarea>
+                            placeholder="domain1.com
+domain2.com
+domain3.com"
+                        >{{ old('domain_list') }}</textarea>
+                        <small class="form-text text-muted">Example format:
+                            <pre class="mt-2">gorillize.com
+microtaxes.com
+nearbuy.org</pre>
+                        </small>
                     </div>
                     <button type="submit" class="btn btn-primary mt-3">Filter Domains</button>
                 </form>
@@ -97,6 +104,9 @@
             <strong>Filtered Results:</strong> 
             Found {{ $filteredDomains->count() }} domains. 
             Total Suggested Price: ${{ number_format($filteredDomains->sum('suggested_price'), 2) }}
+            <div class="mt-2">
+                <small>Matched domains: {{ $filteredDomains->pluck('domain')->implode(', ') }}</small>
+            </div>
         </div>
     @endif
 
