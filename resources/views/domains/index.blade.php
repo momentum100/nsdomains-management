@@ -90,8 +90,22 @@ example.org"></textarea>
             <!-- Counter to show filtered results -->
             @if(isset($isFiltered) && $isFiltered)
                 <div class="alert alert-info mt-3">
+                    @php
+                        // Calculate total price of all filtered domains
+                        $totalPrice = $domains->sum('suggested_price');
+                        // Count of domains with prices
+                        $domainsWithPrice = $domains->count();
+                    @endphp
                     <strong>Showing {{ $total }} filtered domains.</strong> 
-                    <a href="{{ route('domains.index') }}">Clear filter to see all domains.</a>
+                    <strong>Total suggested price: ${{ number_format($totalPrice, 2) }}</strong>
+                    @if($domainsWithPrice > 0)
+                        <strong>(Avg: ${{ number_format($totalPrice / $domainsWithPrice, 2) }} per domain)</strong>
+                    @endif
+                    <div class="mt-2">
+                        <a href="{{ route('domains.index') }}" class="btn btn-sm btn-outline-primary">
+                            Clear filter to see all domains
+                        </a>
+                    </div>
                 </div>
             @endif
         </div>
