@@ -170,5 +170,12 @@
         text-decoration: underline;
         color: #0d6efd;
     }
+    .card-header[data-bs-toggle="collapse"] .fa-chevron-down {
+        transition: transform 0.2s ease-in-out;
+    }
+
+    .card-header[data-bs-toggle="collapse"][aria-expanded="true"] .fa-chevron-down {
+        transform: rotate(180deg);
+    }
 </style>
 @endsection
