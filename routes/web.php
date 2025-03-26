@@ -40,15 +40,12 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::delete('/domains/', [DomainController::class, 'destroy'])->name('domains.destroy');
     Route::post('/domains/mark-as-sold', [DomainController::class, 'markAsSold'])->name('domains.markAsSold');
     Route::get('/domains', [DomainController::class, 'index'])->name('domains.index');
+    Route::post('/domains/filter', [DomainController::class, 'index'])->name('domains.filter');
     Route::get('/domains/export', [DomainController::class, 'exportCsv'])->name('domains.export');
 
     // Add new route for registrar filtering
     Route::get('/domains/registrar/{registrar}', [DomainController::class, 'indexByRegistrar'])
         ->name('domains.byRegistrar');
-
-    // Add new route for domain list filtering
-    Route::post('/domains/filter-list', [DomainController::class, 'filterByList'])
-        ->name('domains.filterByList');
 });
 
 // Authenticated user routes (non-admin)
