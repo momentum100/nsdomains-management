@@ -24,12 +24,17 @@ class DomainController extends Controller
 
     public function index(Request $request)
     {
-        // Start with all domains
+        // Start with base query - only active domains by default
         $query = Domain::query();
+        
+        // Handle status filtering
+        $status = $request->get('status', 'ACTIVE');
+        if ($status) {
+            $query->where('status', $status);
+        }
         
         // Track if we're filtering by domain list
         $isFiltering = false;
-        $filteredDomains = null;
         
         // Handle domain list filtering
         if ($request->has('domain_list') && !empty($request->domain_list)) {
@@ -44,17 +49,18 @@ class DomainController extends Controller
                 ->values()
                 ->toArray();
             
-            Log::info('Searching for domains:', ['count' => count($domainList)]);
+            Log::info('Searching for domains:', ['count' => count($domainList), 'domains' => $domainList]);
             
-            // Store the filtered domains separately
-            $filteredDomains = Domain::whereIn('domain', $domainList)->get();
-            
-            Log::info('Found domains:', ['count' => $filteredDomains->count()]);
+            // Apply domain list filter to the main query
+            $query->whereIn('domain', $domainList);
             $isFiltering = true;
         }
         
-        // Apply other existing filters (if any)
-        // ...
+        // Get registrar filter if set
+        if ($request->has('registrar')) {
+            $registrar = $request->registrar;
+            $query->where('registrar', $registrar);
+        }
         
         // Get statistics for all domains (regardless of filtering)
         $total = Domain::count();
@@ -68,8 +74,22 @@ class DomainController extends Controller
             ->orderBy('total', 'desc')
             ->get();
         
-        // Paginate results for the main table
+        // Get filtered domains first (before pagination)
+        $allFilteredDomains = clone $query;
+        $filteredDomains = $allFilteredDomains->get();
+        $filteredCount = $filteredDomains->count();
+        $totalPrice = $filteredDomains->sum('suggested_price');
+        
+        // Get domains with pagination for display
         $domains = $query->paginate(10);
+        
+        // For debugging
+        Log::info('Query SQL:', [
+            'sql' => $query->toSql(),
+            'bindings' => $query->getBindings(),
+            'count' => $filteredCount,
+            'total_price' => $totalPrice
+        ]);
         
         return view('domains.index', [
             'domains' => $domains,
@@ -78,9 +98,10 @@ class DomainController extends Controller
             'sold' => $sold,
             'activeDomainsByRegistrar' => $activeDomainsByRegistrar,
             'isFiltering' => $isFiltering,
-            'filteredDomains' => $filteredDomains,
-            // Only calculate total price if we have filtered domains
-            'totalPrice' => $filteredDomains ? $filteredDomains->sum('suggested_price') : 0
+            'filteredCount' => $filteredCount,
+            'totalPrice' => $totalPrice,
+            'matchedDomains' => $isFiltering ? $filteredDomains->pluck('domain')->implode(', ') : null,
+            'status' => $status
         ]);
     }
 

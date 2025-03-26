@@ -62,7 +62,7 @@
         </div>
     @endif
 
-    <!-- At the top of the page, after the buttons but before the stats -->
+    <!-- Place the filter collapsible just after the buttons -->
     <div class="card mb-4">
         <div class="card-header" role="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="false" aria-controls="filterCollapse" style="cursor: pointer;">
             <div class="d-flex justify-content-between align-items-center">
@@ -74,6 +74,13 @@
         <div class="collapse" id="filterCollapse">
             <div class="card-body">
                 <form action="{{ route('domains.index') }}" method="GET">
+                    @if(request()->has('status'))
+                        <input type="hidden" name="status" value="{{ request('status') }}">
+                    @endif
+                    @if(request()->has('registrar'))
+                        <input type="hidden" name="registrar" value="{{ request('registrar') }}">
+                    @endif
+                    
                     <div class="form-group">
                         <label for="domain_list">Paste domains (one domain per line)</label>
                         <textarea 
@@ -91,56 +98,23 @@ nearbuy.org</pre>
                     </div>
                     <button type="submit" class="btn btn-primary mt-3">Filter Domains</button>
                     @if(request()->has('domain_list'))
-                        <a href="{{ route('domains.index') }}" class="btn btn-outline-secondary mt-3 ml-2">Clear Filter</a>
+                        <a href="{{ url()->current() }}?{{ http_build_query(request()->except('domain_list')) }}" class="btn btn-outline-secondary mt-3 ml-2">Clear Domain Filter</a>
                     @endif
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- After the stats section, show filtered results if any -->
-    @if(isset($isFiltering) && $isFiltering && isset($filteredDomains))
+    <!-- Show filter results summary if filtering -->
+    @if(isset($isFiltering) && $isFiltering)
         <div class="alert alert-info mb-4">
-            <strong>Filtered Results:</strong> 
-            Found {{ $filteredDomains->count() }} domains. 
-            Total Suggested Price: ${{ number_format($totalPrice, 2) }}
+            <strong>Filtered Results:</strong> Found {{ $filteredCount }} domains. Total Suggested Price: ${{ number_format($totalPrice, 2) }}
             
-            @if($filteredDomains->count() > 0)
+            @if($filteredCount > 0 && isset($matchedDomains))
                 <div class="mt-2">
-                    <small>Matched domains: {{ $filteredDomains->pluck('domain')->implode(', ') }}</small>
+                    <small>Matched domains: {{ $matchedDomains }}</small>
                 </div>
             @endif
-        </div>
-        
-        <!-- Optionally show a table with just the filtered domains -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5>Filtered Domains</h5>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Domain</th>
-                                <th>Expiry Date</th>
-                                <th>Registrar</th>
-                                <th>Suggested Price</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($filteredDomains as $domain)
-                            <tr>
-                                <td>{{ $domain->domain }}</td>
-                                <td>{{ date('Y-m-d', $domain->exp_date) }}</td>
-                                <td>{{ $domain->registrar }}</td>
-                                <td>${{ number_format($domain->suggested_price, 2) }}</td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </div>
         </div>
     @endif
 
@@ -148,37 +122,42 @@ nearbuy.org</pre>
         <form id="bulk-action-form" action="{{ route('domains.destroy') }}" method="POST">
             @csrf
             @method('DELETE')
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th><input type="checkbox" id="select-all"></th>
-                        <th>Domain</th>
-                        <th>Expiration Date</th>
-                        <th>Registrar</th>
-                        <th>Days Left</th>
-                        <th>Suggested Price</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($domains as $domain)
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
                         <tr>
-                            <td>{{ $loop->iteration }}</td>
-                            <td><input type="checkbox" name="domains[]" value="{{ $domain->id }}" class="domain-checkbox"></td>
-                            <td>{{ $domain->domain }}</td>
-                            <td>{{ date('Y-m-d H:i:s', $domain->exp_date) }}</td>
-                            <td>{{ $domain->registrar }}</td>
-                            <td>{{ $domain->days_left }}</td>
-                            <td>${{ number_format($domain->suggested_price, 2) }}</td>
+                            <th>#</th>
+                            <th><input type="checkbox" id="select-all"></th>
+                            <th>Domain</th>
+                            <th>Expiration Date</th>
+                            <th>Registrar</th>
+                            <th>Days Left</th>
+                            <th>Suggested Price</th>
                         </tr>
-                    @endforeach
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @foreach($domains as $domain)
+                            <tr>
+                                <td>{{ $loop->iteration }}</td>
+                                <td><input type="checkbox" name="domains[]" value="{{ $domain->id }}" class="domain-checkbox"></td>
+                                <td>{{ $domain->domain }}</td>
+                                <td>{{ date('Y-m-d H:i:s', $domain->exp_date) }}</td>
+                                <td>{{ $domain->registrar }}</td>
+                                <td>{{ $domain->days_left }}</td>
+                                <td>${{ number_format($domain->suggested_price ?? 0, 2) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
             <button type="submit" id="bulk-action-button" class="btn btn-warning" style="display: none; position: fixed; bottom: 20px; right: 20px;">Mark Selected as Sold</button>
         </form>
     @else
         <p>No domains found.</p>
     @endif
+
+    <!-- Pagination -->
+    {{ $domains->appends(request()->query())->links() }}
 </div>
 
 <script>
