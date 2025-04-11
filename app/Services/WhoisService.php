@@ -99,9 +99,28 @@ class WhoisService
             }
             
             return $result;
+        } catch (\Iodev\Whois\Exceptions\ConnectionException $e) {
+            // ELI15: If we couldn't connect to the WHOIS server for this domain after trying a few times...
+            Log::warning("WHOIS connection failed for {$domain} after retries: " . $e->getMessage());
+            // ...just mark it as an error and return default info so we can continue with others.
+            return [
+                'domain' => $domain,
+                'registrar' => 'Unknown',
+                'expiration_date' => null,
+                'days_left' => null,
+                'error' => 'WHOIS server connection failed.'
+            ];
         } catch (Exception $e) {
-            Log::error("Error querying WHOIS for {$domain}: " . $e->getMessage());
-            throw $e;
+            // ELI15: If some other unexpected error happened during WHOIS lookup...
+            Log::error("Unexpected error querying WHOIS for {$domain}: " . $e->getMessage());
+            // ...log it and return an error structure. This prevents the whole process from crashing.
+            return [
+                'domain' => $domain,
+                'registrar' => 'Error',
+                'expiration_date' => null,
+                'days_left' => null,
+                'error' => 'Unexpected WHOIS error: ' . $e->getMessage()
+            ];
         }
     }
     
