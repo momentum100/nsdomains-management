@@ -20,7 +20,7 @@ jobs:
 
     - name: Pull latest code from GitHub on the server
       run: |
-        ssh -o StrictHostKeyChecking=no ubuntu@148.113.138.32 'cd /var/www/nsdomains-management && git pull'
+        ssh -o StrictHostKeyChecking=no ubuntu@148.113.138.32 'cd /var/www/nsdomains-management && git fetch origin && git reset --hard origin/main'
 
     - name: Send Telegram notification
       run: |

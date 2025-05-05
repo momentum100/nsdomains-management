@@ -166,12 +166,14 @@ example.org"></textarea>
     });
 </script>
 
-<script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
+<script src='https://cdn.plot.ly/plotly-2.32.0.min.js'></script>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const histogramData = @json($histogramData);
         
+        console.log('Raw Histogram Data:', histogramData);
+
         const trace = {
             x: histogramData.labels,
             y: Array(histogramData.labels.length).fill(1),
