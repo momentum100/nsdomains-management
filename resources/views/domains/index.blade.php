@@ -13,6 +13,13 @@
     </div>
     {{-- End Top Button Row --}}
 
+    {{-- Histogram Container (Moved Here, Initially Hidden) --}}
+    <div id="histogram-container" style="display: none; margin-bottom: 20px;">
+        <h4>Active Domain Expiration Distribution</h4>
+        <div id="histogramChart" style="height: 400px;"></div>
+    </div>
+    {{-- End Histogram Container --}}
+
     <div class="row mb-4">
         <div class="col-md-6">
             <p>Total (in view): {{ $total }} domains</p>
@@ -57,11 +64,6 @@
     <div class="mb-3 mt-3"> {{-- Active/Sold Buttons --}}
         <a href="{{ route('domains.index', ['status' => 'ACTIVE']) }}" class="btn btn-info mr-2">Active</a>
         <a href="{{ route('domains.index', ['status' => 'SOLD']) }}" class="btn btn-secondary">Sold</a>
-    </div>
-
-    <div id="histogram-container" style="display: none; margin-bottom: 20px;">
-        <h4>Active Domain Expiration Distribution</h4>
-        <div id="histogramChart" style="height: 400px;"></div>
     </div>
 
     @if(isset($registrar))
