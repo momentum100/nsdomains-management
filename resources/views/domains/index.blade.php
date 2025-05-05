@@ -3,22 +3,23 @@
 @section('content')
 <div class="container">
     <h2>Domains</h2>
-    {{-- Top Button Row --}}
-    <div class="mb-3"> 
+    {{-- Top Button Row & Histogram Wrapper --}}
+    <div class="mb-3" style="position: relative;"> {{-- Added position: relative --}}
         <a href="{{ route('domains.export') }}" class="btn btn-success">Export CSV</a>
         <a href="{{ url('/upload') }}" class="btn btn-primary">Upload</a>
         <a href="{{ url('/getquote') }}" class="btn btn-secondary">Get Quote</a>
         {{-- Moved Histogram Toggle Button Here --}}
         <button type="button" id="toggle-histogram-link" class="btn btn-outline-info ml-2">Show Expiration Histogram</button> 
-    </div>
-    {{-- End Top Button Row --}}
 
-    {{-- Histogram Container (Initially Hidden) --}}
-    <div id="histogram-container" style="display: none; margin-top: 15px; margin-bottom: 20px;">
-        <h4>Active Domain Expiration Distribution</h4>
-        <div id="histogramChart" style="height: 400px;"></div>
+        {{-- Histogram Container (Positioned Absolutely, Initially Hidden) --}}
+        <div id="histogram-popup-container" style="display: none; position: absolute; top: 100%; left: 0; width: 600px; max-width: 100%; z-index: 100; background: white; border: 1px solid #ccc; border-radius: 5px; box-shadow: 0 5px 15px rgba(0,0,0,.1); padding: 15px; margin-top: 5px;">
+            {{-- Removed the explicit close button --}}
+            <h4 style="margin: 0; margin-bottom: 10px;">Active Domain Expiration Distribution</h4> 
+            <div id="histogramChart" style="height: 400px;"></div>
+        </div>
+        {{-- End Histogram Container --}}
     </div>
-    {{-- End Histogram Container --}}
+    {{-- End Top Button Row & Histogram Wrapper --}}
 
     <div class="row mb-4">
         <div class="col-md-6">
@@ -219,13 +220,15 @@ example.org"></textarea>
             toggleLink.classList.add('disabled');
         }
 
-        if (toggleLink && histogramContainer) {
+        const histogramPopupContainer = document.getElementById('histogram-popup-container');
+        
+        if (toggleLink && histogramPopupContainer) {
             toggleLink.addEventListener('click', function(event) {
-                event.preventDefault();
-                const isHidden = histogramContainer.style.display === 'none';
-                histogramContainer.style.display = isHidden ? 'block' : 'none';
+                event.preventDefault(); // Prevent default link behavior
+                const isHidden = histogramPopupContainer.style.display === 'none';
+                histogramPopupContainer.style.display = isHidden ? 'block' : 'none';
                 this.textContent = isHidden ? 'Hide Expiration Histogram' : 'Show Expiration Histogram';
-                console.log('Histogram visibility toggled inline.');
+                console.log('Histogram visibility toggled.');
             });
         }
     });
