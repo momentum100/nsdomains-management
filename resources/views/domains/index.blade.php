@@ -13,15 +13,12 @@
     </div>
     {{-- End Top Button Row --}}
 
-    {{-- Histogram Popup Container (Initially Hidden) --}}
-    <div id="histogram-popup-container" style="display: none; position: fixed; top: 80px; right: 20px; width: 600px; max-width: 90%; z-index: 1050; background: white; border: 1px solid #ccc; border-radius: 5px; box-shadow: 0 5px 15px rgba(0,0,0,.1); padding: 15px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <h4 style="margin: 0;">Active Domain Expiration Distribution</h4>
-            <button type="button" class="btn-close" aria-label="Close" id="close-histogram-popup"></button>
-        </div>
+    {{-- Histogram Container (Initially Hidden) --}}
+    <div id="histogram-container" style="display: none; margin-top: 15px; margin-bottom: 20px;">
+        <h4>Active Domain Expiration Distribution</h4>
         <div id="histogramChart" style="height: 400px;"></div>
     </div>
-    {{-- End Histogram Popup Container --}}
+    {{-- End Histogram Container --}}
 
     <div class="row mb-4">
         <div class="col-md-6">
@@ -222,23 +219,13 @@ example.org"></textarea>
             toggleLink.classList.add('disabled');
         }
 
-        const histogramPopupContainer = document.getElementById('histogram-popup-container');
-        const closePopupButton = document.getElementById('close-histogram-popup');
-
-        if (toggleLink && histogramPopupContainer) {
+        if (toggleLink && histogramContainer) {
             toggleLink.addEventListener('click', function(event) {
                 event.preventDefault();
-                histogramPopupContainer.style.display = 'block';
-                this.disabled = true;
-                console.log('Histogram visibility toggled.');
-            });
-        }
-
-        if (closePopupButton && histogramPopupContainer && toggleLink) {
-            closePopupButton.addEventListener('click', function() {
-                histogramPopupContainer.style.display = 'none';
-                toggleLink.disabled = false;
-                console.log('Histogram popup closed.');
+                const isHidden = histogramContainer.style.display === 'none';
+                histogramContainer.style.display = isHidden ? 'block' : 'none';
+                this.textContent = isHidden ? 'Hide Expiration Histogram' : 'Show Expiration Histogram';
+                console.log('Histogram visibility toggled inline.');
             });
         }
     });
