@@ -176,8 +176,7 @@ example.org"></textarea>
 
         const trace = {
             x: histogramData.labels,
-            y: Array(histogramData.labels.length).fill(1),
-            z: histogramData.counts,
+            y: histogramData.counts,
             type: 'bar',
             marker: {
                 color: histogramData.counts,
@@ -187,19 +186,16 @@ example.org"></textarea>
         
         const layout = {
             title: 'Domain Expiration Buckets (Active)',
-            scene: {
-                xaxis: { title: 'Days Until Expiration' },
-                yaxis: { showticklabels: false },
-                zaxis: { title: 'Number of Domains' },
-                camera: {
-                    eye: { x: 1.5, y: 1.5, z: 0.8 }
-                }
+            xaxis: { 
+                title: 'Days Until Expiration', 
+                tickangle: -45
             },
-            margin: { l: 0, r: 0, b: 0, t: 40 }
+            yaxis: { title: 'Number of Domains' },
+            margin: { l: 50, r: 20, b: 100, t: 50 }
         };
         
         Plotly.newPlot('histogram3d', [trace], layout, {responsive: true});
-        console.log('3D Histogram rendered.');
+        console.log('2D Bar Chart rendered.');
     });
 </script>
 
