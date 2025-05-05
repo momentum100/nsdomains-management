@@ -31,11 +31,6 @@
                 @endforeach
             </ul>
         </div>
-        
-        <div class="col-md-6">
-            <h4>Active Domain Expiration Distribution</h4>
-            <div id="histogram3d" style="height: 400px;"></div>
-        </div>
     </div>
 
     <button class="btn btn-info mb-3" type="button" data-toggle="collapse" data-target="#collapsibleTextarea" aria-expanded="false" aria-controls="collapsibleTextarea">
