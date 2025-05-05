@@ -48,10 +48,20 @@
         </form>
     </div>
 
-    <div class="mb-3 mt-3">
+    <div class="mb-3 mt-3"> {{-- Active/Sold Buttons --}}
         <a href="{{ route('domains.index', ['status' => 'ACTIVE']) }}" class="btn btn-info mr-2">Active</a>
         <a href="{{ route('domains.index', ['status' => 'SOLD']) }}" class="btn btn-secondary">Sold</a>
     </div>
+
+    {{-- Histogram Section (Toggle Button and Container) --}}
+    <div class="mb-3"> {{-- Add margin below the button --}}
+        <button type="button" id="toggle-histogram-link" class="btn btn-outline-info">Show Expiration Histogram</button>
+    </div>
+    <div id="histogram-container" style="display: none; margin-bottom: 20px;">
+        <h4>Active Domain Expiration Distribution</h4>
+        <div id="histogramChart" style="height: 400px;"></div>
+    </div>
+    {{-- End Histogram Section --}}
 
     @if(isset($registrar))
         <div class="mb-3">
@@ -140,15 +150,6 @@ example.org"></textarea>
     @endif
 </div>
 
-{{-- Histogram Section (Initially Hidden) --}}
-<div class="container mt-4">
-    <a href="#" id="toggle-histogram-link">Show Expiration Histogram</a>
-    <div id="histogram-container" style="display: none; margin-top: 15px;">
-        <h4>Active Domain Expiration Distribution</h4>
-        <div id="histogramChart" style="height: 400px;"></div>
-    </div>
-</div>
-
 <script>
     document.getElementById('select-all').addEventListener('click', function(event) {
         let checkboxes = document.querySelectorAll('.domain-checkbox');
@@ -217,7 +218,8 @@ example.org"></textarea>
                 event.preventDefault();
                 const isHidden = histogramContainer.style.display === 'none';
                 histogramContainer.style.display = isHidden ? 'block' : 'none';
-                toggleLink.textContent = isHidden ? 'Hide Expiration Histogram' : 'Show Expiration Histogram';
+                // Update button text based on visibility
+                this.textContent = isHidden ? 'Hide Expiration Histogram' : 'Show Expiration Histogram'; 
                 console.log('Histogram visibility toggled.');
             });
         }
