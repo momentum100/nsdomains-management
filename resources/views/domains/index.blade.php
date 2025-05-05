@@ -143,6 +143,17 @@ example.org"></textarea>
     @endif
 </div>
 
+{{-- Histogram Section (Initially Hidden) --}}
+@if(!empty($histogramData['labels'])) {{-- Only render if there is data --}}
+<div class="container mt-4">
+    <a href="#" id="toggle-histogram-link">Show Expiration Histogram</a>
+    <div id="histogram-container" style="display: none; margin-top: 15px;">
+        <h4>Active Domain Expiration Distribution</h4>
+        <div id="histogramChart" style="height: 400px;"></div> {{-- Changed ID --}}
+    </div>
+</div>
+@endif {{-- End Histogram Section --}}
+
 <script>
     document.getElementById('select-all').addEventListener('click', function(event) {
         let checkboxes = document.querySelectorAll('.domain-checkbox');
@@ -166,10 +177,15 @@ example.org"></textarea>
     });
 </script>
 
+{{-- Include Plotly only if needed --}}
+@if(!empty($histogramData['labels']))
 <script src='https://cdn.plot.ly/plotly-2.32.0.min.js'></script>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        const histogramContainer = document.getElementById('histogram-container');
+        const toggleLink = document.getElementById('toggle-histogram-link');
+
         const histogramData = @json($histogramData);
         
         console.log('Raw Histogram Data:', histogramData);
@@ -194,10 +210,21 @@ example.org"></textarea>
             margin: { l: 50, r: 20, b: 100, t: 50 }
         };
         
-        Plotly.newPlot('histogram3d', [trace], layout, {responsive: true});
+        Plotly.newPlot('histogramChart', [trace], layout, {responsive: true});
         console.log('2D Bar Chart rendered.');
+
+        if (toggleLink && histogramContainer) {
+            toggleLink.addEventListener('click', function(event) {
+                event.preventDefault();
+                const isHidden = histogramContainer.style.display === 'none';
+                histogramContainer.style.display = isHidden ? 'block' : 'none';
+                toggleLink.textContent = isHidden ? 'Hide Expiration Histogram' : 'Show Expiration Histogram';
+                console.log('Histogram visibility toggled.');
+            });
+        }
     });
 </script>
+@endif
 
 <style>
     .registrar-link {

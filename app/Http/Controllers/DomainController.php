@@ -88,12 +88,18 @@ class DomainController extends Controller
             $buckets[$bucketKey]++;
         }
         
-        // ELI15: Prepare the data in a format the chart library can understand.
-        $histogramData = [
-            'labels' => array_keys($buckets),
-            'counts' => array_values($buckets)
-        ];
-        \Log::info('Histogram Data Prepared:', $histogramData);
+        // ELI15: Prepare the data for the chart, only if status is ACTIVE.
+        if ($status === 'ACTIVE') {
+            $histogramData = [
+                'labels' => array_keys($buckets),
+                'counts' => array_values($buckets)
+            ];
+            \Log::info('Histogram Data Prepared:', $histogramData);
+        } else {
+            // ELI15: Provide default empty data if not viewing ACTIVE domains.
+            $histogramData = ['labels' => [], 'counts' => []];
+            \Log::info('Not viewing ACTIVE domains, histogram data is empty.');
+        }
         // --- End Histogram Data Calculation ---
 
         $total = $domains->count(); // Count based on the potentially filtered $domains
@@ -280,7 +286,43 @@ class DomainController extends Controller
                              return $domain;
                          });
 
-        // Get counts for the statistics
+        // --- Calculate Histogram Data (Similar to index method) ---
+        // ELI15: Get active domains for this specific registrar for the histogram.
+        $allActiveDomains = Domain::select(DB::raw('DATEDIFF(FROM_UNIXTIME(exp_date), NOW()) as days_left'))
+                                  ->where('status', 'ACTIVE')
+                                  ->where('registrar', $registrar)
+                                  ->get();
+        $buckets = [
+            '0-29' => 0, '30-59' => 0, '60-89' => 0, '90-119' => 0, 
+            '120-149' => 0, '150-179' => 0, '180-209' => 0, '210-239' => 0,
+            '240-269' => 0, '270-299' => 0, '300-329' => 0, '330-359' => 0,
+            '360+' => 0
+        ];
+        $bucketRanges = [
+            29 => '0-29', 59 => '30-59', 89 => '60-89', 119 => '90-119',
+            149 => '120-149', 179 => '150-179', 209 => '180-209', 239 => '210-239',
+            269 => '240-269', 299 => '270-299', 329 => '300-329', 359 => '330-359'
+        ];
+        foreach ($allActiveDomains as $domain) {
+            $days = $domain->days_left;
+            if ($days < 0) continue;
+            $bucketKey = '360+';
+            foreach ($bucketRanges as $maxDays => $key) {
+                if ($days <= $maxDays) {
+                    $bucketKey = $key;
+                    break;
+                }
+            }
+            $buckets[$bucketKey]++;
+        }
+        $histogramData = [
+            'labels' => array_keys($buckets),
+            'counts' => array_values($buckets)
+        ];
+        \Log::info("Histogram Data Prepared for registrar {$registrar}:", $histogramData);
+        // --- End Histogram Data Calculation ---
+
+        // Get total counts for the statistics (these remain global)
         $total = $domains->count();
         $active = Domain::where('status', 'ACTIVE')->count();
         $sold = Domain::where('status', 'SOLD')->count();
@@ -297,7 +339,8 @@ class DomainController extends Controller
             'active',
             'sold',
             'activeDomainsByRegistrar',
-            'registrar'  // Pass the current registrar to highlight it in the view
+            'registrar',  // Pass the current registrar to highlight it in the view
+            'histogramData' // Pass histogram data
         ));
     }
 }
