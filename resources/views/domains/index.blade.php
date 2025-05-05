@@ -3,10 +3,16 @@
 @section('content')
 <div class="container">
     <h2>Domains</h2>
-    <a href="{{ route('domains.export') }}" class="btn btn-success mb-3">Export CSV</a>
-    <a href="{{ url('/upload') }}" class="btn btn-primary mb-3">Upload</a>
-    <a href="{{ url('/getquote') }}" class="btn btn-secondary mb-3">Get Quote</a>
-    
+    {{-- Top Button Row --}}
+    <div class="mb-3"> 
+        <a href="{{ route('domains.export') }}" class="btn btn-success">Export CSV</a>
+        <a href="{{ url('/upload') }}" class="btn btn-primary">Upload</a>
+        <a href="{{ url('/getquote') }}" class="btn btn-secondary">Get Quote</a>
+        {{-- Moved Histogram Toggle Button Here --}}
+        <button type="button" id="toggle-histogram-link" class="btn btn-outline-info ml-2">Show Expiration Histogram</button> 
+    </div>
+    {{-- End Top Button Row --}}
+
     <div class="row mb-4">
         <div class="col-md-6">
             <p>Total (in view): {{ $total }} domains</p>
@@ -53,15 +59,10 @@
         <a href="{{ route('domains.index', ['status' => 'SOLD']) }}" class="btn btn-secondary">Sold</a>
     </div>
 
-    {{-- Histogram Section (Toggle Button and Container) --}}
-    <div class="mb-3"> {{-- Add margin below the button --}}
-        <button type="button" id="toggle-histogram-link" class="btn btn-outline-info">Show Expiration Histogram</button>
-    </div>
     <div id="histogram-container" style="display: none; margin-bottom: 20px;">
         <h4>Active Domain Expiration Distribution</h4>
         <div id="histogramChart" style="height: 400px;"></div>
     </div>
-    {{-- End Histogram Section --}}
 
     @if(isset($registrar))
         <div class="mb-3">
