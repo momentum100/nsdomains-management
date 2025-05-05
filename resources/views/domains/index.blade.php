@@ -190,7 +190,10 @@ example.org"></textarea>
             scene: {
                 xaxis: { title: 'Days Until Expiration' },
                 yaxis: { showticklabels: false },
-                zaxis: { title: 'Number of Domains' }
+                zaxis: { title: 'Number of Domains' },
+                camera: {
+                    eye: { x: 1.5, y: 1.5, z: 0.8 }
+                }
             },
             margin: { l: 0, r: 0, b: 0, t: 40 }
         };
