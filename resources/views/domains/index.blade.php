@@ -12,7 +12,9 @@
             <p>Total (in view): {{ $total }} domains</p>
             <p>Total Active: {{ $active }} domains</p>
             <p>Total Sold: {{ $sold }} domains</p>
-            
+        </div>
+        
+        <div class="col-md-6">
             <h4>Active Domains by Registrar</h4>
             <ul>
                 <li>
@@ -139,15 +141,13 @@ example.org"></textarea>
 </div>
 
 {{-- Histogram Section (Initially Hidden) --}}
-@if(!empty($histogramData['labels'])) {{-- Only render if there is data --}}
 <div class="container mt-4">
     <a href="#" id="toggle-histogram-link">Show Expiration Histogram</a>
     <div id="histogram-container" style="display: none; margin-top: 15px;">
         <h4>Active Domain Expiration Distribution</h4>
-        <div id="histogramChart" style="height: 400px;"></div> {{-- Changed ID --}}
+        <div id="histogramChart" style="height: 400px;"></div>
     </div>
 </div>
-@endif {{-- End Histogram Section --}}
 
 <script>
     document.getElementById('select-all').addEventListener('click', function(event) {
@@ -172,8 +172,7 @@ example.org"></textarea>
     });
 </script>
 
-{{-- Include Plotly only if needed --}}
-@if(!empty($histogramData['labels']))
+{{-- Include Plotly always, JS will handle empty data --}}
 <script src='https://cdn.plot.ly/plotly-2.32.0.min.js'></script>
 
 <script>
@@ -205,8 +204,13 @@ example.org"></textarea>
             margin: { l: 50, r: 20, b: 100, t: 50 }
         };
         
-        Plotly.newPlot('histogramChart', [trace], layout, {responsive: true});
-        console.log('2D Bar Chart rendered.');
+        if (histogramData && histogramData.labels && histogramData.labels.length > 0) {
+            Plotly.newPlot('histogramChart', [trace], layout, {responsive: true});
+            console.log('2D Bar Chart rendered.');
+        } else {
+            console.log('No histogram data to render.');
+            document.getElementById('histogramChart').innerHTML = '<p class="text-muted">Histogram data is only available for Active domains.</p>';
+        }
 
         if (toggleLink && histogramContainer) {
             toggleLink.addEventListener('click', function(event) {
@@ -219,7 +223,6 @@ example.org"></textarea>
         }
     });
 </script>
-@endif
 
 <style>
     .registrar-link {
