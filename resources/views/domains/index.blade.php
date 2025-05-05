@@ -7,19 +7,18 @@
     <a href="{{ url('/upload') }}" class="btn btn-primary mb-3">Upload</a>
     <a href="{{ url('/getquote') }}" class="btn btn-secondary mb-3">Get Quote</a>
     
-    <div class="d-flex justify-content-between">
-        <div>
-            <p>Total: {{ $total }} domains</p>
-            <p>Active: {{ $active }} domains</p>
-            <p>Sold: {{ $sold }} domains</p>
-        </div>
-        <div>
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <p>Total (in view): {{ $total }} domains</p>
+            <p>Total Active: {{ $active }} domains</p>
+            <p>Total Sold: {{ $sold }} domains</p>
+            
             <h4>Active Domains by Registrar</h4>
             <ul>
                 <li>
                     <a href="{{ route('domains.index') }}" 
                        class="registrar-link {{ !isset($registrar) ? 'fw-bold text-primary' : '' }}">
-                        All Domains: {{ $total }} total
+                        All Domains: {{ $active }} total
                     </a>
                 </li>
                 @foreach($activeDomainsByRegistrar as $reg)
@@ -32,11 +31,15 @@
                 @endforeach
             </ul>
         </div>
+        
+        <div class="col-md-6">
+            <h4>Active Domain Expiration Distribution</h4>
+            <div id="histogram3d" style="height: 400px;"></div>
+        </div>
     </div>
 
-    <!-- Collapsible Textarea and Submit Button -->
     <button class="btn btn-info mb-3" type="button" data-toggle="collapse" data-target="#collapsibleTextarea" aria-expanded="false" aria-controls="collapsibleTextarea">
-        Bulk Mark as Sold
+        Bulk Mark as Sold (by Name)
     </button>
     <div class="collapse" id="collapsibleTextarea">
         <form action="{{ route('domains.markAsSold') }}" method="POST">
@@ -62,7 +65,6 @@
         </div>
     @endif
 
-    <!-- Add this form wherever appropriate in the domains.index view -->
     <div class="card mb-4">
         <div class="card-header">
             <h5>Filter by Domain List</h5>
@@ -87,11 +89,9 @@ example.org"></textarea>
                 @endif
             </form>
             
-            <!-- Counter to show filtered results -->
             @if(isset($isFiltered) && $isFiltered)
                 <div class="alert alert-info mt-3">
                     @php
-                        // Calculate total price of all filtered domains
                         $totalPrice = $domains->sum('suggested_price');
                     @endphp
                     <strong>Showing {{ $total }} filtered domains.</strong> 
@@ -159,11 +159,42 @@ example.org"></textarea>
         document.getElementById('bulk-action-button').style.display = anyChecked ? 'block' : 'none';
     }
 
-    // Prevent the bulk form from submitting when clicking the individual "Mark as Sold" buttons
     document.querySelectorAll('form[action^="{{ route('domains.destroy', '') }}"]').forEach(form => {
         form.addEventListener('submit', function(event) {
             event.stopPropagation();
         });
+    });
+</script>
+
+<script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const histogramData = @json($histogramData);
+        
+        const trace = {
+            x: histogramData.labels,
+            y: Array(histogramData.labels.length).fill(1),
+            z: histogramData.counts,
+            type: 'bar',
+            marker: {
+                color: histogramData.counts,
+                colorscale: 'Viridis'
+            }
+        };
+        
+        const layout = {
+            title: 'Domain Expiration Buckets (Active)',
+            scene: {
+                xaxis: { title: 'Days Until Expiration' },
+                yaxis: { showticklabels: false },
+                zaxis: { title: 'Number of Domains' }
+            },
+            margin: { l: 0, r: 0, b: 0, t: 40 }
+        };
+        
+        Plotly.newPlot('histogram3d', [trace], layout, {responsive: true});
+        console.log('3D Histogram rendered.');
     });
 </script>
 
