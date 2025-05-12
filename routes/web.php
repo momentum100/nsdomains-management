@@ -8,6 +8,7 @@ use App\Http\Controllers\GetQuoteController;
 use App\Http\Controllers\Auth\LoginController;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\AdminCryptoPaymentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -46,6 +47,10 @@ Route::middleware(['auth', 'admin'])->group(function () {
     // Add new route for registrar filtering
     Route::get('/domains/registrar/{registrar}', [DomainController::class, 'indexByRegistrar'])
         ->name('domains.byRegistrar');
+
+    // Admin: Crypto payment check tool
+    Route::get('/admin/crypto-payment-check', [AdminCryptoPaymentController::class, 'showForm'])->name('admin.crypto-payment-check');
+    Route::post('/admin/crypto-payment-check', [AdminCryptoPaymentController::class, 'checkTransaction'])->name('admin.crypto-payment-check.post');
 });
 
 // Authenticated user routes (non-admin)

@@ -67,6 +67,10 @@
                                 <li class="nav-item">
                                     <a class="nav-link" href="{{ route('domains.index') }}">{{ __('Manage Domains') }}</a>
                                 </li>
+                                <!-- ELI15: This link is only visible to admins. It opens the Crypto Payment Check tool. -->
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{{ route('admin.crypto-payment-check') }}">Crypto Payment Check</a>
+                                </li>
                             @else
                                 <li class="nav-item">
                                     <a class="nav-link" href="{{ route('getquote.form') }}">{{ __('Get Quote') }}</a>

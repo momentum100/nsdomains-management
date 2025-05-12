@@ -1,0 +1,267 @@
+{
+	"info": {
+		"_postman_id": "0486c51b-08a4-4b09-80e1-45f05dc0a13b",
+		"name": "Crypto payments check API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "15603002"
+	},
+	"item": [
+		{
+			"name": "tron_valid_key",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-API-KEY",
+						"value": "test_api_key_123"
+					}
+				],
+				"url": {
+					"raw": "{{HOST}}/tron/tx/00009557eee0e4de96ad09044665909472d98da93efe68a94b7531fe4b7bad1d",
+					"host": [
+						"{{HOST}}"
+					],
+					"path": [
+						"tron",
+						"tx",
+						"00009557eee0e4de96ad09044665909472d98da93efe68a94b7531fe4b7bad1d"
+					]
+				},
+				"description": "Generated from cURL: curl -X GET \\\r\n  http://localhost:5000/tron/tx/00009557eee0e4de96ad09044665909472d98da93efe68a94b7531fe4b7bad1d \\\r\n  -H \"X-API-KEY: <API_KEY>\""
+			},
+			"response": []
+		},
+		{
+			"name": "bsc_valid_key",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-API-KEY",
+						"value": "test_api_key_123"
+					}
+				],
+				"url": {
+					"raw": "{{HOST}}/bsc/tx/0x70972bb704abba84303f55df329d46c2e574adfd8a1e02e3dc5e259d5f01f2f6",
+					"host": [
+						"{{HOST}}"
+					],
+					"path": [
+						"bsc",
+						"tx",
+						"0x70972bb704abba84303f55df329d46c2e574adfd8a1e02e3dc5e259d5f01f2f6"
+					]
+				},
+				"description": "Generated from cURL: curl -X GET \\\r\n  http://localhost:5000/bsc/tx/0x70972bb704abba84303f55df329d46c2e574adfd8a1e02e3dc5e259d5f01f2f6 \\\r\n  -H \"X-API-KEY: <API_KEY>\""
+			},
+			"response": []
+		},
+		{
+			"name": "bitcoin_valid_tx",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-API-KEY",
+						"value": "test_api_key_123"
+					}
+				],
+				"url": {
+					"raw": "{{HOST}}/bitcoin/tx/359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd?receiver_address=bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh",
+					"host": [
+						"{{HOST}}"
+					],
+					"path": [
+						"bitcoin",
+						"tx",
+						"359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd"
+					],
+					"query": [
+						{
+							"key": "receiver_address",
+							"value": "bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh"
+						}
+					]
+				},
+				"description": "Generated from cURL:   curl -X GET \\\r\n      -H \"X-API-KEY: YOUR_API_KEY_HERE\" \\\r\n      \"http://localhost:5000/bitcoin/tx/359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd?receiver_address=bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh\""
+			},
+			"response": []
+		},
+		{
+			"name": "bypass_btc_get_trx",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "X-API-KEY",
+						"value": "test_api_key_123"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n            \"transaction_hash\": \"00009557eee0e4de96ad09044665909472d98da93efe68a94b7531fe4b7bad1d\"\r\n          }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{HOST}}/check-transaction",
+					"host": [
+						"{{HOST}}"
+					],
+					"path": [
+						"check-transaction"
+					]
+				},
+				"description": "Generated from cURL: curl -X POST \\\r\n      -H \"Content-Type: application/json\" \\\r\n      -H \"X-API-KEY: YOUR_API_KEY_HERE\" \\\r\n      -d '{\r\n            \"transaction_hash\": \"00009557eee0e4de96ad09044665909472d98da93efe68a94b7531fe4b7bad1d\"\r\n          }' \\\r\n      \"http://localhost:5000/check-transaction\""
+			},
+			"response": []
+		},
+		{
+			"name": "btc_with_filter",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "X-API-KEY",
+						"value": "test_api_key_123"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n            \"transaction_hash\": \"359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd\",\r\n            \"receiver_address\": \"bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh\"\r\n          }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{HOST}}/check-transaction",
+					"host": [
+						"{{HOST}}"
+					],
+					"path": [
+						"check-transaction"
+					]
+				},
+				"description": "Generated from cURL:     curl -X POST \\\r\n      -H \"Content-Type: application/json\" \\\r\n      -H \"X-API-KEY: YOUR_API_KEY_HERE\" \\\r\n      -d '{\r\n            \"transaction_hash\": \"359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd\",\r\n            \"receiver_address\": \"bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh\"\r\n          }' \\\r\n      \"http://localhost:5000/check-transaction\""
+			},
+			"response": []
+		},
+		{
+			"name": "only_btc",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "X-API-KEY",
+						"value": "test_api_key_123"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n            \"transaction_hash\": \"359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd\",\r\n            \"blockchain\": \"BITCOIN\",\r\n            \"receiver_address\": \"bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh\"\r\n          }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{HOST}}/check-transaction",
+					"host": [
+						"{{HOST}}"
+					],
+					"path": [
+						"check-transaction"
+					]
+				},
+				"description": "Generated from cURL:     curl -X POST \\\r\n      -H \"Content-Type: application/json\" \\\r\n      -H \"X-API-KEY: YOUR_API_KEY_HERE\" \\\r\n      -d '{\r\n            \"transaction_hash\": \"359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd\",\r\n            \"blockchain\": \"BITCOIN\",\r\n            \"receiver_address\": \"bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh\"\r\n          }' \\\r\n      \"http://localhost:5000/check-transaction\""
+			},
+			"response": []
+		},
+		{
+			"name": "health check",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "X-API-KEY",
+						"value": "test_api_key_123"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n            \"transaction_hash\": \"359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd\",\r\n            \"blockchain\": \"BITCOIN\",\r\n            \"receiver_address\": \"bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh\"\r\n          }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{HOST}}/health",
+					"host": [
+						"{{HOST}}"
+					],
+					"path": [
+						"health"
+					]
+				},
+				"description": "Generated from cURL:     curl -X POST \\\r\n      -H \"Content-Type: application/json\" \\\r\n      -H \"X-API-KEY: YOUR_API_KEY_HERE\" \\\r\n      -d '{\r\n            \"transaction_hash\": \"359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd\",\r\n            \"blockchain\": \"BITCOIN\",\r\n            \"receiver_address\": \"bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh\"\r\n          }' \\\r\n      \"http://localhost:5000/check-transaction\""
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "HOST",
+			"value": "https://crypto-payments.cheaptools.club",
+			"type": "string"
+		}
+	]
+}

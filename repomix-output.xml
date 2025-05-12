@@ -128,6 +128,7 @@ database/migrations/2024_10_18_000000_add_user_id_to_domain_results_table.php
 database/migrations/2025_03_11_212759_create_quote_payment_records_table.php
 database/seeders/AdminUserSeeder.php
 database/seeders/DatabaseSeeder.php
+docs/Crypto payments check API.postman_collection.json
 docs/description.md
 docs/tasks.md
 package.json
@@ -213,38 +214,6 @@ indent_size = 4
 /.github export-ignore
 CHANGELOG.md export-ignore
 .styleci.yml export-ignore
-</file>
-
-<file path=".github/workflows/main.yml">
-name: Auto Deploy on Push
-
-on:
-  push:
-    branches:
-      - main  # Adjust this if your deployment branch is different
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout the repository
-      uses: actions/checkout@v2
-
-    - name: Install SSH key for server access
-      uses: webfactory/ssh-agent@v0.5.3
-      with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-    - name: Pull latest code from GitHub on the server
-      run: |
-        ssh -o StrictHostKeyChecking=no ubuntu@148.113.138.32 'cd /var/www/nsdomains-management && git pull'
-
-    - name: Send Telegram notification
-      run: |
-        curl -s -X POST https://api.telegram.org/bot1790397670:AAFsAoJ5Qju9V4phdq5cflhJF938uS7t2QI/sendMessage \
-        -d chat_id=-4188687896 \
-        -d text="🚀 The latest code has been successfully pulled on the server!"
 </file>
 
 <file path="app/Console/Commands/DownloadDynadotDomains.php">
@@ -347,6 +316,831 @@ class DownloadDynadotDomains extends Command
             
         } catch (\Exception $e) {
             Log::error('Error processing Dynadot domains: ' . $e->getMessage());
+            $this->error('Error: ' . $e->getMessage());
+            return 1;
+        }
+    }
+}
+</file>
+
+<file path="app/Console/Commands/DownloadGodaddyDomains.php">
+<?php
+
+namespace App\Console\Commands;
+
+use App\Models\Domain;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+class DownloadGodaddyDomains extends Command
+{
+    // Command signature and description for artisan
+    protected $signature = 'domains:download-godaddy {--dry-run : Run without saving to database}';
+    protected $description = 'Download domains from GoDaddy API';
+
+    // Base URL for GoDaddy API
+    protected $apiUrl = 'https://api.godaddy.com/v1';
+
+    public function handle()
+    {
+        // Start logging the process with more debug info
+        Log::info('Starting GoDaddy domains download', [
+            'dry_run' => $this->option('dry-run'),
+            'environment' => app()->environment()
+        ]);
+        
+        // Get API credentials from .env with detailed logging
+        $apiKey = config('services.godaddy.api_key');
+        
+        // Log masked API key for debugging
+        Log::info('API Key Check', [
+            'key_exists' => !empty($apiKey),
+            'key_length' => strlen($apiKey),
+            'key_last_4' => !empty($apiKey) ? '****' . substr($apiKey, -4) : 'EMPTY',
+            'config_path' => 'services.godaddy.api_key'
+        ]);
+        
+        // Enhanced API key validation
+        if (empty($apiKey)) {
+            Log::error('GoDaddy API key not found or empty');
+            $this->error('GoDaddy API key not found. Please check your .env file.');
+            return 1;
+        }
+
+        // Validate API key format (should contain : for key:secret format)
+        if (!str_contains($apiKey, ':')) {
+            Log::error('GoDaddy API key appears to be malformed - missing key:secret format');
+            $this->error('GoDaddy API key should be in format "key:secret"');
+            return 1;
+        }
+
+        $this->info('Downloading domains from GoDaddy...');
+
+        try {
+            // Initialize counters for statistics
+            $totalDomains = 0;
+            $newDomains = 0;
+            $skippedDomains = 0;
+
+            // Properly format the API key for GoDaddy
+            // The format should be exactly: sso-key KEY:SECRET (no spaces in KEY:SECRET)
+            $apiKeyTrimmed = trim($apiKey); // Remove any accidental whitespace
+            
+            // Log the API key format (safely)
+            Log::info('API Key Format Check', [
+                'contains_spaces' => str_contains($apiKeyTrimmed, ' '),
+                'key_parts_count' => count(explode(':', $apiKeyTrimmed)),
+                'total_length' => strlen($apiKeyTrimmed),
+                'starts_with_spaces' => $apiKeyTrimmed !== $apiKey
+            ]);
+
+            // Make API request with proper header format
+            $response = Http::withoutVerifying()
+                ->withHeaders([
+                    'Authorization' => 'sso-key ' . $apiKeyTrimmed, // Note the space after sso-key
+                    'Accept' => 'application/json'
+                ])
+                ->get("{$this->apiUrl}/domains", [
+                    'statuses' => 'ACTIVE',
+                    'limit' => 1000
+                ]);
+
+            // Log the request details (safely)
+            Log::info('API Request Details', [
+                'url' => "{$this->apiUrl}/domains",
+                'auth_header_format' => 'sso-key ****' . substr($apiKeyTrimmed, -4),
+                'params' => ['statuses' => 'ACTIVE', 'limit' => 1000]
+            ]);
+
+            if (!$response->successful()) {
+                $errorDetails = [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                    'headers' => $response->headers()
+                ];
+                
+                Log::error('Failed to fetch domains from GoDaddy API', $errorDetails);
+                $this->error('Failed to fetch domains from GoDaddy API');
+                $this->error('Status: ' . $response->status());
+                $this->error('Response: ' . $response->body());
+                $this->error('Headers: ' . json_encode($response->headers()));
+                return 1;
+            }
+
+            // Add raw response logging
+            $domains = $response->json();
+            Log::info('Raw API Response (ACTIVE domains only):', ['response' => json_encode($domains, JSON_PRETTY_PRINT)]);
+            $this->line('Raw API Response (ACTIVE domains only):');
+            $this->line(json_encode($domains, JSON_PRETTY_PRINT));
+            
+            $totalDomains = count($domains);
+            
+            // Log the total number of active domains found
+            $this->info("Processing {$totalDomains} active domains...");
+
+            // Add sample domain structure logging
+            if (!empty($domains)) {
+                Log::info('Sample domain structure:', ['first_domain' => json_encode($domains[0], JSON_PRETTY_PRINT)]);
+                $this->line('Sample domain structure:');
+                $this->line(json_encode($domains[0], JSON_PRETTY_PRINT));
+            }
+
+            // Process each domain from the response
+            foreach ($domains as $domainData) {
+                $domainName = $domainData['domain'];
+                
+                // Skip if domain already exists in our database
+                if (Domain::where('domain', $domainName)->exists()) {
+                    $this->line("Skipping existing domain: {$domainName}");
+                    $skippedDomains++;
+                    continue;
+                }
+
+                // Convert expiry date to timestamp
+                $expTimestamp = strtotime($domainData['expires']);
+                
+                // In dry-run mode, just show what would happen
+                if ($this->option('dry-run')) {
+                    $this->info("Would add domain: {$domainName}");
+                    $this->line("  Expiry: " . date('Y-m-d', $expTimestamp));
+                    $this->line("  Registrar: godaddy");
+                    $newDomains++;
+                    continue;
+                }
+
+                // Create new domain record if not in dry-run mode
+                Domain::create([
+                    'domain' => $domainName,
+                    'exp_date' => $expTimestamp,
+                    'registrar' => 'godaddy'
+                ]);
+                
+                $newDomains++;
+                Log::info("Added new domain: {$domainName}");
+            }
+
+            // Update final message to indicate dry run
+            $message = ($this->option('dry-run') ? "[DRY RUN] " : "") .
+                      "Process completed. " .
+                      "Total domains: {$totalDomains}, " .
+                      "New: {$newDomains}, " .
+                      "Skipped: {$skippedDomains}";
+            
+            Log::info($message);
+            $this->info($message);
+            
+        } catch (\Exception $e) {
+            Log::error('Error processing GoDaddy domains: ' . $e->getMessage());
+            $this->error('Error: ' . $e->getMessage());
+            return 1;
+        }
+    }
+}
+</file>
+
+<file path="app/Console/Commands/DownloadNamecheapDomains.php">
+<?php
+
+namespace App\Console\Commands;
+
+use App\Models\Domain;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+class DownloadNamecheapDomains extends Command
+{
+    // Hey, I'm the command that downloads domains from Namecheap! 
+    protected $signature = 'domains:download-namecheap {--dry-run : Run without saving to database}';
+    protected $description = 'Download domains from Namecheap API';
+
+    // Base URL for Namecheap API - they use a different URL for production vs testing
+    protected $apiUrl = 'https://api.namecheap.com/xml.response';
+
+    public function handle()
+    {
+        // Start our journey! 🚀
+        Log::info('Starting Namecheap domains download', [
+            'dry_run' => $this->option('dry-run'),
+            'environment' => app()->environment()
+        ]);
+        
+        // Get our secret API key
+        $apiKey = config('services.namecheap.api_key');
+        
+        // Log the API key info (but keep it secret! 🤫)
+        Log::info('API Key Check', [
+            'key_exists' => !empty($apiKey),
+            'key_length' => strlen($apiKey),
+            'key_last_4' => !empty($apiKey) ? '****' . substr($apiKey, -4) : 'EMPTY'
+        ]);
+        
+        // Make sure we have an API key
+        if (empty($apiKey)) {
+            Log::error('Namecheap API key not found or empty');
+            $this->error('Namecheap API key not found. Please check your .env file.');
+            return 1;
+        }
+
+        $this->info('Downloading domains from Namecheap...');
+
+        try {
+            // Keep track of what we're doing
+            $totalDomains = 0;
+            $newDomains = 0;
+            $skippedDomains = 0;
+
+            // Namecheap needs these parameters for the API call
+            $params = [
+                'ApiUser' => config('services.namecheap.username', 'your_username'),
+                'ApiKey' => $apiKey,
+                'UserName' => config('services.namecheap.username', 'your_username'),
+                'Command' => 'namecheap.domains.getList',
+                'ClientIp' => config('services.namecheap.client_ip', '127.0.0.1'),
+                'PageSize' => 100,  // Get 100 domains at a time
+                'Page' => 1
+            ];
+
+            // Log what we're about to do
+            Log::info('API Request Details', [
+                'url' => $this->apiUrl,
+                'params' => array_merge($params, ['ApiKey' => '****' . substr($apiKey, -4)])
+            ]);
+
+            // Make the API call - notice we're not verifying SSL (but be careful with this!)
+            $response = Http::withoutVerifying()
+                ->get($this->apiUrl, $params);
+
+            if (!$response->successful()) {
+                $errorDetails = [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                    'headers' => $response->headers()
+                ];
+                
+                Log::error('Failed to fetch domains from Namecheap API', $errorDetails);
+                $this->error('Failed to fetch domains from Namecheap API');
+                return 1;
+            }
+
+            // Namecheap returns XML, so we need to convert it
+            $xml = simplexml_load_string($response->body());
+            $domains = $xml->CommandResponse->DomainGetListResult->Domain ?? [];
+
+            // Log what we got back
+            Log::info('Retrieved domains count:', ['count' => count($domains)]);
+            
+            foreach ($domains as $domain) {
+                $domainName = (string)$domain['Name'];
+                $totalDomains++;
+                
+                // Skip domains we already know about
+                if (Domain::where('domain', $domainName)->exists()) {
+                    $this->line("Skipping existing domain: {$domainName}");
+                    $skippedDomains++;
+                    continue;
+                }
+
+                // Convert expiry date to timestamp
+                $expTimestamp = strtotime((string)$domain['Expires']);
+                
+                // If we're just practicing (dry run), don't actually save anything
+                if ($this->option('dry-run')) {
+                    $this->info("Would add domain: {$domainName}");
+                    $this->line("  Expiry: " . date('Y-m-d', $expTimestamp));
+                    $this->line("  Registrar: namecheap");
+                    $newDomains++;
+                    continue;
+                }
+
+                // Save the domain for real!
+                Domain::create([
+                    'domain' => $domainName,
+                    'exp_date' => $expTimestamp,
+                    'registrar' => 'namecheap'
+                ]);
+                
+                $newDomains++;
+                Log::info("Added new domain: {$domainName}");
+            }
+
+            // Tell everyone what we did
+            $message = ($this->option('dry-run') ? "[DRY RUN] " : "") .
+                      "Process completed. " .
+                      "Total domains: {$totalDomains}, " .
+                      "New: {$newDomains}, " .
+                      "Skipped: {$skippedDomains}";
+            
+            Log::info($message);
+            $this->info($message);
+            
+        } catch (\Exception $e) {
+            Log::error('Error processing Namecheap domains: ' . $e->getMessage());
+            $this->error('Error: ' . $e->getMessage());
+            return 1;
+        }
+    }
+}
+</file>
+
+<file path="app/Console/Commands/DownloadNamecomDomains.php">
+<?php
+
+namespace App\Console\Commands;
+
+use App\Models\Domain;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+class DownloadNamecomDomains extends Command
+{
+    // Command signature and description for artisan
+    protected $signature = 'domains:download-namecom {--dry-run : Run without saving to database}';
+    protected $description = 'Download domains from Name.com API';
+
+    // Base URL for Name.com API
+    protected $apiUrl = 'https://api.name.com/v4';
+
+    public function handle()
+    {
+        // Start logging the process with debug info
+        Log::info('Starting Name.com domains download', [
+            'dry_run' => $this->option('dry-run'),
+            'environment' => app()->environment()
+        ]);
+        
+        // Get API credentials from .env
+        $apiKey = config('services.namecom.api_key');
+        
+        // Log masked API key for debugging
+        Log::info('API Key Check', [
+            'key_exists' => !empty($apiKey),
+            'key_length' => strlen($apiKey),
+            'key_last_4' => !empty($apiKey) ? '****' . substr($apiKey, -4) : 'EMPTY',
+            'config_path' => 'services.namecom.api_key'
+        ]);
+        
+        // Enhanced API key validation
+        if (empty($apiKey)) {
+            Log::error('Name.com API key not found or empty');
+            $this->error('Name.com API key not found. Please check your .env file.');
+            return 1;
+        }
+
+        $this->info('Downloading domains from Name.com...');
+
+        try {
+            // Initialize counters for statistics
+            $totalDomains = 0;
+            $newDomains = 0;
+            $skippedDomains = 0;
+            
+            // Make API request with Basic Auth and skip SSL verification
+            $response = Http::withoutVerifying()
+                ->withBasicAuth('joebravo2007@gmail.com', $apiKey)
+                ->get("{$this->apiUrl}/domains", [
+                    'page' => 1,
+                    'perPage' => 1000
+                ]);
+
+            // Log the request details (safely)
+            Log::info('API Request Details', [
+                'url' => "{$this->apiUrl}/domains",
+                'auth_type' => 'Basic Auth',
+                'params' => ['page' => 1, 'perPage' => 1000]
+            ]);
+
+            if (!$response->successful()) {
+                $errorDetails = [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                    'headers' => $response->headers()
+                ];
+                
+                Log::error('Failed to fetch domains from Name.com API', $errorDetails);
+                $this->error('Failed to fetch domains from Name.com API');
+                $this->error('Status: ' . $response->status());
+                $this->error('Response: ' . $response->body());
+                return 1;
+            }
+
+            // Add raw response logging
+            $responseData = $response->json();
+            $domains = $responseData['domains'] ?? [];
+            
+            Log::info('Raw API Response:', ['response' => json_encode($domains, JSON_PRETTY_PRINT)]);
+            $this->line('Raw API Response:');
+            $this->line(json_encode($domains, JSON_PRETTY_PRINT));
+            
+            $totalDomains = count($domains);
+            
+            // Log the total number of domains found
+            $this->info("Processing {$totalDomains} domains...");
+
+            // Add sample domain structure logging
+            if (!empty($domains)) {
+                Log::info('Sample domain structure:', ['first_domain' => json_encode($domains[0], JSON_PRETTY_PRINT)]);
+                $this->line('Sample domain structure:');
+                $this->line(json_encode($domains[0], JSON_PRETTY_PRINT));
+            }
+
+            // Process each domain from the response
+            foreach ($domains as $domainData) {
+                $domainName = $domainData['domainName'];
+                
+                // Skip if domain already exists in our database
+                if (Domain::where('domain', $domainName)->exists()) {
+                    $this->line("Skipping existing domain: {$domainName}");
+                    $skippedDomains++;
+                    continue;
+                }
+
+                // Convert expiry date to timestamp
+                $expTimestamp = strtotime($domainData['expireDate']);
+                
+                // In dry-run mode, just show what would happen
+                if ($this->option('dry-run')) {
+                    $this->info("Would add domain: {$domainName}");
+                    $this->line("  Expiry: " . date('Y-m-d', $expTimestamp));
+                    $this->line("  Registrar: namecom");
+                    $newDomains++;
+                    continue;
+                }
+
+                // Create new domain record if not in dry-run mode
+                Domain::create([
+                    'domain' => $domainName,
+                    'exp_date' => $expTimestamp,
+                    'registrar' => 'namecom'
+                ]);
+                
+                $newDomains++;
+                Log::info("Added new domain: {$domainName}");
+            }
+
+            // Update final message to indicate dry run
+            $message = ($this->option('dry-run') ? "[DRY RUN] " : "") .
+                      "Process completed. " .
+                      "Total domains: {$totalDomains}, " .
+                      "New: {$newDomains}, " .
+                      "Skipped: {$skippedDomains}";
+            
+            Log::info($message);
+            $this->info($message);
+            
+        } catch (\Exception $e) {
+            Log::error('Error processing Name.com domains: ' . $e->getMessage());
+            $this->error('Error: ' . $e->getMessage());
+            return 1;
+        }
+    }
+}
+</file>
+
+<file path="app/Console/Commands/DownloadPorkbunDomains.php">
+<?php
+
+namespace App\Console\Commands;
+
+use App\Models\Domain;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+class DownloadPorkbunDomains extends Command
+{
+    // Hey! I'm the command that downloads domains from Porkbun API
+    protected $signature = 'domains:download-porkbun {--dry-run : Run without saving to database}';
+    protected $description = 'Download domains from Porkbun API';
+
+    // Porkbun API endpoint - they use HTTPS
+    protected $apiUrl = 'https://api.porkbun.com/api/json/v3';
+
+    public function handle()
+    {
+        // Let's start by logging what we're doing
+        Log::info('Starting Porkbun domains download', [
+            'dry_run' => $this->option('dry-run'),
+            'environment' => app()->environment()
+        ]);
+
+        // Get our API credentials - we need both key and secret
+        $apiKey = config('services.porkbun.api_key');
+        $apiSecret = config('services.porkbun.api_secret');
+
+        // Log that we have the credentials (but don't show them!)
+        Log::info('API Credentials Check', [
+            'key_exists' => !empty($apiKey),
+            'key_length' => strlen($apiKey ?? ''),
+            'secret_exists' => !empty($apiSecret),
+            'secret_length' => strlen($apiSecret ?? ''),
+        ]);
+
+        // Make sure we have both credentials
+        if (empty($apiKey) || empty($apiSecret)) {
+            Log::error('Porkbun API credentials missing');
+            $this->error('Porkbun API credentials not found. Please check your .env file for PORKBUN_API_KEY and PORKBUN_API_SECRET');
+            return 1;
+        }
+
+        $this->info('Downloading domains from Porkbun...');
+
+        try {
+            // Keep track of what we're doing
+            $totalDomains = 0;
+            $newDomains = 0;
+            $skippedDomains = 0;
+
+            // Make the API request - note we're not verifying SSL
+            $response = Http::withoutVerifying()
+                ->post("{$this->apiUrl}/domain/listAll", [
+                    'apikey' => $apiKey,
+                    'secretapikey' => $apiSecret
+                ]);
+
+            // Log what we got back (safely)
+            Log::info('API Request Details', [
+                'url' => "{$this->apiUrl}/domain/listAll",
+                'status' => $response->status(),
+                'has_response' => !empty($response->json())
+            ]);
+
+            if (!$response->successful()) {
+                $errorDetails = [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                    'headers' => $response->headers()
+                ];
+                
+                Log::error('Failed to fetch domains from Porkbun API', $errorDetails);
+                $this->error('Failed to fetch domains from Porkbun API');
+                $this->error('Status: ' . $response->status());
+                $this->error('Response: ' . $response->body());
+                return 1;
+            }
+
+            $responseData = $response->json();
+            
+            // Porkbun specific response structure check
+            if (!isset($responseData['status']) || $responseData['status'] !== 'SUCCESS') {
+                Log::error('Porkbun API returned error', ['response' => $responseData]);
+                $this->error('Porkbun API returned error: ' . ($responseData['message'] ?? 'Unknown error'));
+                return 1;
+            }
+
+            $domains = $responseData['domains'] ?? [];
+            $totalDomains = count($domains);
+
+            // Show what we found
+            $this->info("Processing {$totalDomains} domains...");
+
+            // Log a sample domain if we have any
+            if (!empty($domains)) {
+                Log::info('Sample domain structure:', ['first_domain' => json_encode($domains[0], JSON_PRETTY_PRINT)]);
+            }
+
+            // Process each domain
+            foreach ($domains as $domainData) {
+                $domainName = $domainData['domain'];
+                
+                // Skip if we already have it
+                if (Domain::where('domain', $domainName)->exists()) {
+                    $this->line("Skipping existing domain: {$domainName}");
+                    $skippedDomains++;
+                    continue;
+                }
+
+                // Convert expiry date to timestamp
+                $expTimestamp = strtotime($domainData['expireDate']);
+                
+                // In dry-run mode, just show what would happen
+                if ($this->option('dry-run')) {
+                    $this->info("Would add domain: {$domainName}");
+                    $this->line("  Expiry: " . date('Y-m-d', $expTimestamp));
+                    $this->line("  Registrar: porkbun");
+                    $newDomains++;
+                    continue;
+                }
+
+                // Actually add the domain to our database
+                Domain::create([
+                    'domain' => $domainName,
+                    'exp_date' => $expTimestamp,
+                    'registrar' => 'porkbun'
+                ]);
+                
+                $newDomains++;
+                Log::info("Added new domain: {$domainName}");
+            }
+
+            // Show the final results
+            $message = ($this->option('dry-run') ? "[DRY RUN] " : "") .
+                      "Process completed. " .
+                      "Total domains: {$totalDomains}, " .
+                      "New: {$newDomains}, " .
+                      "Skipped: {$skippedDomains}";
+            
+            Log::info($message);
+            $this->info($message);
+            
+        } catch (\Exception $e) {
+            Log::error('Error processing Porkbun domains: ' . $e->getMessage());
+            $this->error('Error: ' . $e->getMessage());
+            return 1;
+        }
+    }
+}
+</file>
+
+<file path="app/Console/Commands/DownloadSpaceshipDomains.php">
+<?php
+
+namespace App\Console\Commands;
+
+use App\Models\Domain;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+class DownloadSpaceshipDomains extends Command
+{
+    // Hey, I'm the command that downloads domains from Spaceship.com!
+    protected $signature = 'domains:download-spaceship {--dry-run : Run without saving to database}';
+    protected $description = 'Download domains from Spaceship.com API';
+
+    // Base URL for Spaceship API - updated to match docs
+    protected $apiUrl = 'https://spaceship.dev/api/v1';
+
+    public function handle()
+    {
+        // Let's start by logging what we're doing
+        Log::info('Starting Spaceship domains download', [
+            'dry_run' => $this->option('dry-run'),
+            'environment' => app()->environment()
+        ]);
+
+        // Get our API credentials - we need both key and secret
+        $apiKey = config('services.spaceship.api_key');
+        $apiSecret = config('services.spaceship.api_secret');
+
+        // Log that we got the credentials (but don't show them!)
+        Log::info('API Credentials Check', [
+            'key_exists' => !empty($apiKey),
+            'secret_exists' => !empty($apiSecret),
+            'key_last_4' => !empty($apiKey) ? '****' . substr($apiKey, -4) : 'EMPTY',
+            'secret_last_4' => !empty($apiSecret) ? '****' . substr($apiSecret, -4) : 'EMPTY'
+        ]);
+
+        // Make sure we have both credentials
+        if (empty($apiKey) || empty($apiSecret)) {
+            Log::error('Spaceship API credentials missing');
+            $this->error('Spaceship API credentials not found. Please check SPACESHIP_API_KEY and SPACESHIP_API_SECRET in your .env file.');
+            return 1;
+        }
+
+        $this->info('Downloading domains from Spaceship...');
+
+        try {
+            $totalDomains = 0;
+            $newDomains = 0;
+            $skippedDomains = 0;
+            $page = 0;
+            $hasMorePages = true;
+
+            while ($hasMorePages) {
+                Log::info('Fetching page', ['page' => $page]);
+
+                $response = Http::withoutVerifying()
+                    ->withHeaders([
+                        'X-API-Key' => $apiKey,
+                        'X-API-Secret' => $apiSecret,
+                    ])
+                    ->get("{$this->apiUrl}/domains", [
+                        'take' => 100,
+                        'skip' => $page * 100,
+                        'orderBy' => ['name']
+                    ]);
+
+                // Log what we tried to do
+                Log::info('API Request Details', [
+                    'url' => "{$this->apiUrl}/domains",
+                    'auth_type' => 'X-API headers',
+                    'params' => [
+                        'take' => 100,
+                        'skip' => $page * 100,
+                        'orderBy' => ['name']
+                    ]
+                ]);
+
+                // If something went wrong, let's handle it
+                if (!$response->successful()) {
+                    $errorDetails = [
+                        'status' => $response->status(),
+                        'body' => $response->body(),
+                        'headers' => $response->headers()
+                    ];
+                    
+                    Log::error('Failed to fetch domains from Spaceship API', $errorDetails);
+                    $this->error('Failed to fetch domains from Spaceship API');
+                    $this->error('Status: ' . $response->status());
+                    $this->error('Response: ' . $response->body());
+                    return 1;
+                }
+
+                // Debug: Show complete API response
+                $this->info('Complete API Response:');
+                $this->line(json_encode($response->json(), JSON_PRETTY_PRINT));
+                
+                // Update to use 'items' instead of 'domains'
+                $domains = $response->json()['items'] ?? [];
+                $currentPageCount = count($domains);
+                
+                Log::info('Retrieved domains for page', [
+                    'page' => $page,
+                    'count' => $currentPageCount
+                ]);
+
+                foreach ($domains as $domainData) {
+                    $domainName = $domainData['name'] ?? null;
+                    
+                    if (!$domainName) {
+                        Log::warning('Domain name missing in response', ['data' => $domainData]);
+                        continue;
+                    }
+
+                    // Skip existing domains
+                    if (Domain::where('domain', $domainName)->exists()) {
+                        $this->line("Skipping existing domain: {$domainName}");
+                        $skippedDomains++;
+                        continue;
+                    }
+
+                    // Convert expiry date to timestamp
+                    $expTimestamp = strtotime($domainData['expirationDate'] ?? 'now');
+                    $regTimestamp = strtotime($domainData['registrationDate'] ?? 'now');
+
+                    // Log detailed domain info
+                    Log::info('Processing domain', [
+                        'name' => $domainName,
+                        'isPremium' => $domainData['isPremium'] ?? false,
+                        'autoRenew' => $domainData['autoRenew'] ?? false,
+                        'lifecycle' => $domainData['lifecycleStatus'] ?? 'unknown',
+                        'verification' => $domainData['verificationStatus'] ?? 'unknown',
+                        'nameservers' => $domainData['nameservers']['hosts'] ?? []
+                    ]);
+
+                    if ($this->option('dry-run')) {
+                        $this->info("Would add domain: {$domainName}");
+                        $this->line("  Registration: " . date('Y-m-d', $regTimestamp));
+                        $this->line("  Expiry: " . date('Y-m-d', $expTimestamp));
+                        $this->line("  Registrar: spaceship");
+                        $this->line("  Auto Renew: " . ($domainData['autoRenew'] ? 'Yes' : 'No'));
+                        $newDomains++;
+                        continue;
+                    }
+
+                    // Save with additional fields
+                    Domain::create([
+                        'domain' => $domainName,
+                        'exp_date' => $expTimestamp,
+                        'reg_date' => $regTimestamp,
+                        'registrar' => 'spaceship',
+                        'auto_renew' => $domainData['autoRenew'] ?? false,
+                        'status' => $domainData['lifecycleStatus'] ?? 'registered',
+                        'nameservers' => json_encode($domainData['nameservers']['hosts'] ?? [])
+                    ]);
+                    
+                    $newDomains++;
+                    Log::info("Added new domain: {$domainName}");
+                }
+
+                $totalDomains += $currentPageCount;
+                
+                // Check if we should continue pagination
+                $hasMorePages = $currentPageCount >= 100;
+                $page++;
+
+                Log::info('Page processing complete', [
+                    'current_page' => $page,
+                    'has_more' => $hasMorePages,
+                    'total_so_far' => $totalDomains
+                ]);
+            }
+
+            // Tell everyone what we did
+            $message = ($this->option('dry-run') ? "[DRY RUN] " : "") .
+                      "Process completed. " .
+                      "Total domains: {$totalDomains}, " .
+                      "New: {$newDomains}, " .
+                      "Skipped: {$skippedDomains}";
+            
+            Log::info($message);
+            $this->info($message);
+            
+        } catch (\Exception $e) {
+            Log::error('Error processing Spaceship domains: ' . $e->getMessage());
             $this->error('Error: ' . $e->getMessage());
             return 1;
         }
@@ -2295,6 +3089,71 @@ return [
 ];
 </file>
 
+<file path="config/services.php">
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Third Party Services
+    |--------------------------------------------------------------------------
+    |
+    | This file is for storing the credentials for third party services such
+    | as Mailgun, Postmark, AWS and more. This file provides the de facto
+    | location for this type of information, allowing packages to have
+    | a conventional file to locate the various service credentials.
+    |
+    */
+
+    'mailgun' => [
+        'domain' => env('MAILGUN_DOMAIN'),
+        'secret' => env('MAILGUN_SECRET'),
+        'endpoint' => env('MAILGUN_ENDPOINT', 'api.mailgun.net'),
+        'scheme' => 'https',
+    ],
+
+    'postmark' => [
+        'token' => env('POSTMARK_TOKEN'),
+    ],
+
+    'ses' => [
+        'key' => env('AWS_ACCESS_KEY_ID'),
+        'secret' => env('AWS_SECRET_ACCESS_KEY'),
+        'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+    ],
+
+    'dynadot' => [
+        'api_key' => env('DYNADOT_API_KEY'),
+    ],
+
+    'godaddy' => [
+        'api_key' => env('GODADDY_API_KEY'),
+    ],
+
+    'namecom' => [
+        'api_key' => env('NAMECOM_API_KEY'),
+    ],
+
+    'namecheap' => [
+        'api_key' => env('NAMECHEAP_API_KEY'),
+        'username' => env('NAMECHEAP_USERNAME'),
+        'client_ip' => env('NAMECHEAP_CLIENT_IP', '127.0.0.1'),
+    ],
+
+    'porkbun' => [
+        'api_key' => env('PORKBUN_API_KEY'),
+        'api_secret' => env('PORKBUN_API_SECRET'),
+    ],
+
+    'spaceship' => [
+        'api_key' => env('SPACESHIP_API_KEY'),
+        'api_secret' => env('SPACESHIP_API_SECRET'),
+    ],
+
+];
+</file>
+
 <file path="config/session.php">
 <?php
 
@@ -2936,6 +3795,276 @@ class DatabaseSeeder extends Seeder
         //     'email' => 'test@example.com',
         // ]);
     }
+}
+</file>
+
+<file path="docs/Crypto payments check API.postman_collection.json">
+{
+	"info": {
+		"_postman_id": "0486c51b-08a4-4b09-80e1-45f05dc0a13b",
+		"name": "Crypto payments check API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "15603002"
+	},
+	"item": [
+		{
+			"name": "tron_valid_key",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-API-KEY",
+						"value": "test_api_key_123"
+					}
+				],
+				"url": {
+					"raw": "{{HOST}}/tron/tx/00009557eee0e4de96ad09044665909472d98da93efe68a94b7531fe4b7bad1d",
+					"host": [
+						"{{HOST}}"
+					],
+					"path": [
+						"tron",
+						"tx",
+						"00009557eee0e4de96ad09044665909472d98da93efe68a94b7531fe4b7bad1d"
+					]
+				},
+				"description": "Generated from cURL: curl -X GET \\\r\n  http://localhost:5000/tron/tx/00009557eee0e4de96ad09044665909472d98da93efe68a94b7531fe4b7bad1d \\\r\n  -H \"X-API-KEY: <API_KEY>\""
+			},
+			"response": []
+		},
+		{
+			"name": "bsc_valid_key",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-API-KEY",
+						"value": "test_api_key_123"
+					}
+				],
+				"url": {
+					"raw": "{{HOST}}/bsc/tx/0x70972bb704abba84303f55df329d46c2e574adfd8a1e02e3dc5e259d5f01f2f6",
+					"host": [
+						"{{HOST}}"
+					],
+					"path": [
+						"bsc",
+						"tx",
+						"0x70972bb704abba84303f55df329d46c2e574adfd8a1e02e3dc5e259d5f01f2f6"
+					]
+				},
+				"description": "Generated from cURL: curl -X GET \\\r\n  http://localhost:5000/bsc/tx/0x70972bb704abba84303f55df329d46c2e574adfd8a1e02e3dc5e259d5f01f2f6 \\\r\n  -H \"X-API-KEY: <API_KEY>\""
+			},
+			"response": []
+		},
+		{
+			"name": "bitcoin_valid_tx",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-API-KEY",
+						"value": "test_api_key_123"
+					}
+				],
+				"url": {
+					"raw": "{{HOST}}/bitcoin/tx/359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd?receiver_address=bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh",
+					"host": [
+						"{{HOST}}"
+					],
+					"path": [
+						"bitcoin",
+						"tx",
+						"359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd"
+					],
+					"query": [
+						{
+							"key": "receiver_address",
+							"value": "bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh"
+						}
+					]
+				},
+				"description": "Generated from cURL:   curl -X GET \\\r\n      -H \"X-API-KEY: YOUR_API_KEY_HERE\" \\\r\n      \"http://localhost:5000/bitcoin/tx/359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd?receiver_address=bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh\""
+			},
+			"response": []
+		},
+		{
+			"name": "bypass_btc_get_trx",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "X-API-KEY",
+						"value": "test_api_key_123"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n            \"transaction_hash\": \"00009557eee0e4de96ad09044665909472d98da93efe68a94b7531fe4b7bad1d\"\r\n          }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{HOST}}/check-transaction",
+					"host": [
+						"{{HOST}}"
+					],
+					"path": [
+						"check-transaction"
+					]
+				},
+				"description": "Generated from cURL: curl -X POST \\\r\n      -H \"Content-Type: application/json\" \\\r\n      -H \"X-API-KEY: YOUR_API_KEY_HERE\" \\\r\n      -d '{\r\n            \"transaction_hash\": \"00009557eee0e4de96ad09044665909472d98da93efe68a94b7531fe4b7bad1d\"\r\n          }' \\\r\n      \"http://localhost:5000/check-transaction\""
+			},
+			"response": []
+		},
+		{
+			"name": "btc_with_filter",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "X-API-KEY",
+						"value": "test_api_key_123"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n            \"transaction_hash\": \"359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd\",\r\n            \"receiver_address\": \"bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh\"\r\n          }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{HOST}}/check-transaction",
+					"host": [
+						"{{HOST}}"
+					],
+					"path": [
+						"check-transaction"
+					]
+				},
+				"description": "Generated from cURL:     curl -X POST \\\r\n      -H \"Content-Type: application/json\" \\\r\n      -H \"X-API-KEY: YOUR_API_KEY_HERE\" \\\r\n      -d '{\r\n            \"transaction_hash\": \"359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd\",\r\n            \"receiver_address\": \"bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh\"\r\n          }' \\\r\n      \"http://localhost:5000/check-transaction\""
+			},
+			"response": []
+		},
+		{
+			"name": "only_btc",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "X-API-KEY",
+						"value": "test_api_key_123"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n            \"transaction_hash\": \"359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd\",\r\n            \"blockchain\": \"BITCOIN\",\r\n            \"receiver_address\": \"bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh\"\r\n          }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{HOST}}/check-transaction",
+					"host": [
+						"{{HOST}}"
+					],
+					"path": [
+						"check-transaction"
+					]
+				},
+				"description": "Generated from cURL:     curl -X POST \\\r\n      -H \"Content-Type: application/json\" \\\r\n      -H \"X-API-KEY: YOUR_API_KEY_HERE\" \\\r\n      -d '{\r\n            \"transaction_hash\": \"359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd\",\r\n            \"blockchain\": \"BITCOIN\",\r\n            \"receiver_address\": \"bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh\"\r\n          }' \\\r\n      \"http://localhost:5000/check-transaction\""
+			},
+			"response": []
+		},
+		{
+			"name": "health check",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "X-API-KEY",
+						"value": "test_api_key_123"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n            \"transaction_hash\": \"359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd\",\r\n            \"blockchain\": \"BITCOIN\",\r\n            \"receiver_address\": \"bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh\"\r\n          }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{HOST}}/health",
+					"host": [
+						"{{HOST}}"
+					],
+					"path": [
+						"health"
+					]
+				},
+				"description": "Generated from cURL:     curl -X POST \\\r\n      -H \"Content-Type: application/json\" \\\r\n      -H \"X-API-KEY: YOUR_API_KEY_HERE\" \\\r\n      -d '{\r\n            \"transaction_hash\": \"359f8a4bb14b8e1e79580320b92552dc0b3919340ae608746269abcce847c1fd\",\r\n            \"blockchain\": \"BITCOIN\",\r\n            \"receiver_address\": \"bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh\"\r\n          }' \\\r\n      \"http://localhost:5000/check-transaction\""
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "HOST",
+			"value": "https://crypto-payments.cheaptools.club",
+			"type": "string"
+		}
+	]
 }
 </file>
 
@@ -3981,6 +5110,38 @@ SAV_COM_API_KEY=lC5YdK2kVZHuZKOfv4HtXybY96ycw6nYFKuNlvb9
 DOMAIN_PRICES_JSON_PATH=storage/app/namecheap.json
 </file>
 
+<file path=".github/workflows/main.yml">
+name: Auto Deploy on Push
+
+on:
+  push:
+    branches:
+      - main  # Adjust this if your deployment branch is different
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout the repository
+      uses: actions/checkout@v2
+
+    - name: Install SSH key for server access
+      uses: webfactory/ssh-agent@v0.5.3
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Pull latest code from GitHub on the server
+      run: |
+        ssh -o StrictHostKeyChecking=no ubuntu@148.113.138.32 'cd /var/www/nsdomains-management && git fetch origin && git reset --hard origin/main'
+
+    - name: Send Telegram notification
+      run: |
+        curl -s -X POST https://api.telegram.org/bot1790397670:AAFsAoJ5Qju9V4phdq5cflhJF938uS7t2QI/sendMessage \
+        -d chat_id=-4188687896 \
+        -d text="🚀 The latest code has been successfully pulled on the server!"
+</file>
+
 <file path=".gitignore">
 /.phpunit.cache
 /node_modules
@@ -4005,637 +5166,6 @@ composer.lock
 composer.json
 composer.json
 composer.lock
-</file>
-
-<file path="app/Console/Commands/DownloadGodaddyDomains.php">
-<?php
-
-namespace App\Console\Commands;
-
-use App\Models\Domain;
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
-
-class DownloadGodaddyDomains extends Command
-{
-    // Command signature and description for artisan
-    protected $signature = 'domains:download-godaddy {--dry-run : Run without saving to database}';
-    protected $description = 'Download domains from GoDaddy API';
-
-    // Base URL for GoDaddy API
-    protected $apiUrl = 'https://api.godaddy.com/v1';
-
-    public function handle()
-    {
-        // Start logging the process with more debug info
-        Log::info('Starting GoDaddy domains download', [
-            'dry_run' => $this->option('dry-run'),
-            'environment' => app()->environment()
-        ]);
-        
-        // Get API credentials from .env with detailed logging
-        $apiKey = config('services.godaddy.api_key');
-        
-        // Log masked API key for debugging
-        Log::info('API Key Check', [
-            'key_exists' => !empty($apiKey),
-            'key_length' => strlen($apiKey),
-            'key_last_4' => !empty($apiKey) ? '****' . substr($apiKey, -4) : 'EMPTY',
-            'config_path' => 'services.godaddy.api_key'
-        ]);
-        
-        // Enhanced API key validation
-        if (empty($apiKey)) {
-            Log::error('GoDaddy API key not found or empty');
-            $this->error('GoDaddy API key not found. Please check your .env file.');
-            return 1;
-        }
-
-        // Validate API key format (should contain : for key:secret format)
-        if (!str_contains($apiKey, ':')) {
-            Log::error('GoDaddy API key appears to be malformed - missing key:secret format');
-            $this->error('GoDaddy API key should be in format "key:secret"');
-            return 1;
-        }
-
-        $this->info('Downloading domains from GoDaddy...');
-
-        try {
-            // Initialize counters for statistics
-            $totalDomains = 0;
-            $newDomains = 0;
-            $skippedDomains = 0;
-
-            // Properly format the API key for GoDaddy
-            // The format should be exactly: sso-key KEY:SECRET (no spaces in KEY:SECRET)
-            $apiKeyTrimmed = trim($apiKey); // Remove any accidental whitespace
-            
-            // Log the API key format (safely)
-            Log::info('API Key Format Check', [
-                'contains_spaces' => str_contains($apiKeyTrimmed, ' '),
-                'key_parts_count' => count(explode(':', $apiKeyTrimmed)),
-                'total_length' => strlen($apiKeyTrimmed),
-                'starts_with_spaces' => $apiKeyTrimmed !== $apiKey
-            ]);
-
-            // Make API request with proper header format
-            $response = Http::withoutVerifying()
-                ->withHeaders([
-                    'Authorization' => 'sso-key ' . $apiKeyTrimmed, // Note the space after sso-key
-                    'Accept' => 'application/json'
-                ])
-                ->get("{$this->apiUrl}/domains", [
-                    'statuses' => 'ACTIVE',
-                    'limit' => 1000
-                ]);
-
-            // Log the request details (safely)
-            Log::info('API Request Details', [
-                'url' => "{$this->apiUrl}/domains",
-                'auth_header_format' => 'sso-key ****' . substr($apiKeyTrimmed, -4),
-                'params' => ['statuses' => 'ACTIVE', 'limit' => 1000]
-            ]);
-
-            if (!$response->successful()) {
-                $errorDetails = [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                    'headers' => $response->headers()
-                ];
-                
-                Log::error('Failed to fetch domains from GoDaddy API', $errorDetails);
-                $this->error('Failed to fetch domains from GoDaddy API');
-                $this->error('Status: ' . $response->status());
-                $this->error('Response: ' . $response->body());
-                $this->error('Headers: ' . json_encode($response->headers()));
-                return 1;
-            }
-
-            // Add raw response logging
-            $domains = $response->json();
-            Log::info('Raw API Response (ACTIVE domains only):', ['response' => json_encode($domains, JSON_PRETTY_PRINT)]);
-            $this->line('Raw API Response (ACTIVE domains only):');
-            $this->line(json_encode($domains, JSON_PRETTY_PRINT));
-            
-            $totalDomains = count($domains);
-            
-            // Log the total number of active domains found
-            $this->info("Processing {$totalDomains} active domains...");
-
-            // Add sample domain structure logging
-            if (!empty($domains)) {
-                Log::info('Sample domain structure:', ['first_domain' => json_encode($domains[0], JSON_PRETTY_PRINT)]);
-                $this->line('Sample domain structure:');
-                $this->line(json_encode($domains[0], JSON_PRETTY_PRINT));
-            }
-
-            // Process each domain from the response
-            foreach ($domains as $domainData) {
-                $domainName = $domainData['domain'];
-                
-                // Skip if domain already exists in our database
-                if (Domain::where('domain', $domainName)->exists()) {
-                    $this->line("Skipping existing domain: {$domainName}");
-                    $skippedDomains++;
-                    continue;
-                }
-
-                // Convert expiry date to timestamp
-                $expTimestamp = strtotime($domainData['expires']);
-                
-                // In dry-run mode, just show what would happen
-                if ($this->option('dry-run')) {
-                    $this->info("Would add domain: {$domainName}");
-                    $this->line("  Expiry: " . date('Y-m-d', $expTimestamp));
-                    $this->line("  Registrar: godaddy");
-                    $newDomains++;
-                    continue;
-                }
-
-                // Create new domain record if not in dry-run mode
-                Domain::create([
-                    'domain' => $domainName,
-                    'exp_date' => $expTimestamp,
-                    'registrar' => 'godaddy'
-                ]);
-                
-                $newDomains++;
-                Log::info("Added new domain: {$domainName}");
-            }
-
-            // Update final message to indicate dry run
-            $message = ($this->option('dry-run') ? "[DRY RUN] " : "") .
-                      "Process completed. " .
-                      "Total domains: {$totalDomains}, " .
-                      "New: {$newDomains}, " .
-                      "Skipped: {$skippedDomains}";
-            
-            Log::info($message);
-            $this->info($message);
-            
-        } catch (\Exception $e) {
-            Log::error('Error processing GoDaddy domains: ' . $e->getMessage());
-            $this->error('Error: ' . $e->getMessage());
-            return 1;
-        }
-    }
-}
-</file>
-
-<file path="app/Console/Commands/DownloadNamecheapDomains.php">
-<?php
-
-namespace App\Console\Commands;
-
-use App\Models\Domain;
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
-
-class DownloadNamecheapDomains extends Command
-{
-    // Hey, I'm the command that downloads domains from Namecheap! 
-    protected $signature = 'domains:download-namecheap {--dry-run : Run without saving to database}';
-    protected $description = 'Download domains from Namecheap API';
-
-    // Base URL for Namecheap API - they use a different URL for production vs testing
-    protected $apiUrl = 'https://api.namecheap.com/xml.response';
-
-    public function handle()
-    {
-        // Start our journey! 🚀
-        Log::info('Starting Namecheap domains download', [
-            'dry_run' => $this->option('dry-run'),
-            'environment' => app()->environment()
-        ]);
-        
-        // Get our secret API key
-        $apiKey = config('services.namecheap.api_key');
-        
-        // Log the API key info (but keep it secret! 🤫)
-        Log::info('API Key Check', [
-            'key_exists' => !empty($apiKey),
-            'key_length' => strlen($apiKey),
-            'key_last_4' => !empty($apiKey) ? '****' . substr($apiKey, -4) : 'EMPTY'
-        ]);
-        
-        // Make sure we have an API key
-        if (empty($apiKey)) {
-            Log::error('Namecheap API key not found or empty');
-            $this->error('Namecheap API key not found. Please check your .env file.');
-            return 1;
-        }
-
-        $this->info('Downloading domains from Namecheap...');
-
-        try {
-            // Keep track of what we're doing
-            $totalDomains = 0;
-            $newDomains = 0;
-            $skippedDomains = 0;
-
-            // Namecheap needs these parameters for the API call
-            $params = [
-                'ApiUser' => config('services.namecheap.username', 'your_username'),
-                'ApiKey' => $apiKey,
-                'UserName' => config('services.namecheap.username', 'your_username'),
-                'Command' => 'namecheap.domains.getList',
-                'ClientIp' => config('services.namecheap.client_ip', '127.0.0.1'),
-                'PageSize' => 100,  // Get 100 domains at a time
-                'Page' => 1
-            ];
-
-            // Log what we're about to do
-            Log::info('API Request Details', [
-                'url' => $this->apiUrl,
-                'params' => array_merge($params, ['ApiKey' => '****' . substr($apiKey, -4)])
-            ]);
-
-            // Make the API call - notice we're not verifying SSL (but be careful with this!)
-            $response = Http::withoutVerifying()
-                ->get($this->apiUrl, $params);
-
-            if (!$response->successful()) {
-                $errorDetails = [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                    'headers' => $response->headers()
-                ];
-                
-                Log::error('Failed to fetch domains from Namecheap API', $errorDetails);
-                $this->error('Failed to fetch domains from Namecheap API');
-                return 1;
-            }
-
-            // Namecheap returns XML, so we need to convert it
-            $xml = simplexml_load_string($response->body());
-            $domains = $xml->CommandResponse->DomainGetListResult->Domain ?? [];
-
-            // Log what we got back
-            Log::info('Retrieved domains count:', ['count' => count($domains)]);
-            
-            foreach ($domains as $domain) {
-                $domainName = (string)$domain['Name'];
-                $totalDomains++;
-                
-                // Skip domains we already know about
-                if (Domain::where('domain', $domainName)->exists()) {
-                    $this->line("Skipping existing domain: {$domainName}");
-                    $skippedDomains++;
-                    continue;
-                }
-
-                // Convert expiry date to timestamp
-                $expTimestamp = strtotime((string)$domain['Expires']);
-                
-                // If we're just practicing (dry run), don't actually save anything
-                if ($this->option('dry-run')) {
-                    $this->info("Would add domain: {$domainName}");
-                    $this->line("  Expiry: " . date('Y-m-d', $expTimestamp));
-                    $this->line("  Registrar: namecheap");
-                    $newDomains++;
-                    continue;
-                }
-
-                // Save the domain for real!
-                Domain::create([
-                    'domain' => $domainName,
-                    'exp_date' => $expTimestamp,
-                    'registrar' => 'namecheap'
-                ]);
-                
-                $newDomains++;
-                Log::info("Added new domain: {$domainName}");
-            }
-
-            // Tell everyone what we did
-            $message = ($this->option('dry-run') ? "[DRY RUN] " : "") .
-                      "Process completed. " .
-                      "Total domains: {$totalDomains}, " .
-                      "New: {$newDomains}, " .
-                      "Skipped: {$skippedDomains}";
-            
-            Log::info($message);
-            $this->info($message);
-            
-        } catch (\Exception $e) {
-            Log::error('Error processing Namecheap domains: ' . $e->getMessage());
-            $this->error('Error: ' . $e->getMessage());
-            return 1;
-        }
-    }
-}
-</file>
-
-<file path="app/Console/Commands/DownloadNamecomDomains.php">
-<?php
-
-namespace App\Console\Commands;
-
-use App\Models\Domain;
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
-
-class DownloadNamecomDomains extends Command
-{
-    // Command signature and description for artisan
-    protected $signature = 'domains:download-namecom {--dry-run : Run without saving to database}';
-    protected $description = 'Download domains from Name.com API';
-
-    // Base URL for Name.com API
-    protected $apiUrl = 'https://api.name.com/v4';
-
-    public function handle()
-    {
-        // Start logging the process with debug info
-        Log::info('Starting Name.com domains download', [
-            'dry_run' => $this->option('dry-run'),
-            'environment' => app()->environment()
-        ]);
-        
-        // Get API credentials from .env
-        $apiKey = config('services.namecom.api_key');
-        
-        // Log masked API key for debugging
-        Log::info('API Key Check', [
-            'key_exists' => !empty($apiKey),
-            'key_length' => strlen($apiKey),
-            'key_last_4' => !empty($apiKey) ? '****' . substr($apiKey, -4) : 'EMPTY',
-            'config_path' => 'services.namecom.api_key'
-        ]);
-        
-        // Enhanced API key validation
-        if (empty($apiKey)) {
-            Log::error('Name.com API key not found or empty');
-            $this->error('Name.com API key not found. Please check your .env file.');
-            return 1;
-        }
-
-        $this->info('Downloading domains from Name.com...');
-
-        try {
-            // Initialize counters for statistics
-            $totalDomains = 0;
-            $newDomains = 0;
-            $skippedDomains = 0;
-            
-            // Make API request with Basic Auth and skip SSL verification
-            $response = Http::withoutVerifying()
-                ->withBasicAuth('joebravo2007@gmail.com', $apiKey)
-                ->get("{$this->apiUrl}/domains", [
-                    'page' => 1,
-                    'perPage' => 1000
-                ]);
-
-            // Log the request details (safely)
-            Log::info('API Request Details', [
-                'url' => "{$this->apiUrl}/domains",
-                'auth_type' => 'Basic Auth',
-                'params' => ['page' => 1, 'perPage' => 1000]
-            ]);
-
-            if (!$response->successful()) {
-                $errorDetails = [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                    'headers' => $response->headers()
-                ];
-                
-                Log::error('Failed to fetch domains from Name.com API', $errorDetails);
-                $this->error('Failed to fetch domains from Name.com API');
-                $this->error('Status: ' . $response->status());
-                $this->error('Response: ' . $response->body());
-                return 1;
-            }
-
-            // Add raw response logging
-            $responseData = $response->json();
-            $domains = $responseData['domains'] ?? [];
-            
-            Log::info('Raw API Response:', ['response' => json_encode($domains, JSON_PRETTY_PRINT)]);
-            $this->line('Raw API Response:');
-            $this->line(json_encode($domains, JSON_PRETTY_PRINT));
-            
-            $totalDomains = count($domains);
-            
-            // Log the total number of domains found
-            $this->info("Processing {$totalDomains} domains...");
-
-            // Add sample domain structure logging
-            if (!empty($domains)) {
-                Log::info('Sample domain structure:', ['first_domain' => json_encode($domains[0], JSON_PRETTY_PRINT)]);
-                $this->line('Sample domain structure:');
-                $this->line(json_encode($domains[0], JSON_PRETTY_PRINT));
-            }
-
-            // Process each domain from the response
-            foreach ($domains as $domainData) {
-                $domainName = $domainData['domainName'];
-                
-                // Skip if domain already exists in our database
-                if (Domain::where('domain', $domainName)->exists()) {
-                    $this->line("Skipping existing domain: {$domainName}");
-                    $skippedDomains++;
-                    continue;
-                }
-
-                // Convert expiry date to timestamp
-                $expTimestamp = strtotime($domainData['expireDate']);
-                
-                // In dry-run mode, just show what would happen
-                if ($this->option('dry-run')) {
-                    $this->info("Would add domain: {$domainName}");
-                    $this->line("  Expiry: " . date('Y-m-d', $expTimestamp));
-                    $this->line("  Registrar: namecom");
-                    $newDomains++;
-                    continue;
-                }
-
-                // Create new domain record if not in dry-run mode
-                Domain::create([
-                    'domain' => $domainName,
-                    'exp_date' => $expTimestamp,
-                    'registrar' => 'namecom'
-                ]);
-                
-                $newDomains++;
-                Log::info("Added new domain: {$domainName}");
-            }
-
-            // Update final message to indicate dry run
-            $message = ($this->option('dry-run') ? "[DRY RUN] " : "") .
-                      "Process completed. " .
-                      "Total domains: {$totalDomains}, " .
-                      "New: {$newDomains}, " .
-                      "Skipped: {$skippedDomains}";
-            
-            Log::info($message);
-            $this->info($message);
-            
-        } catch (\Exception $e) {
-            Log::error('Error processing Name.com domains: ' . $e->getMessage());
-            $this->error('Error: ' . $e->getMessage());
-            return 1;
-        }
-    }
-}
-</file>
-
-<file path="app/Console/Commands/DownloadPorkbunDomains.php">
-<?php
-
-namespace App\Console\Commands;
-
-use App\Models\Domain;
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
-
-class DownloadPorkbunDomains extends Command
-{
-    // Hey! I'm the command that downloads domains from Porkbun API
-    protected $signature = 'domains:download-porkbun {--dry-run : Run without saving to database}';
-    protected $description = 'Download domains from Porkbun API';
-
-    // Porkbun API endpoint - they use HTTPS
-    protected $apiUrl = 'https://api.porkbun.com/api/json/v3';
-
-    public function handle()
-    {
-        // Let's start by logging what we're doing
-        Log::info('Starting Porkbun domains download', [
-            'dry_run' => $this->option('dry-run'),
-            'environment' => app()->environment()
-        ]);
-
-        // Get our API credentials - we need both key and secret
-        $apiKey = config('services.porkbun.api_key');
-        $apiSecret = config('services.porkbun.api_secret');
-
-        // Log that we have the credentials (but don't show them!)
-        Log::info('API Credentials Check', [
-            'key_exists' => !empty($apiKey),
-            'key_length' => strlen($apiKey ?? ''),
-            'secret_exists' => !empty($apiSecret),
-            'secret_length' => strlen($apiSecret ?? ''),
-        ]);
-
-        // Make sure we have both credentials
-        if (empty($apiKey) || empty($apiSecret)) {
-            Log::error('Porkbun API credentials missing');
-            $this->error('Porkbun API credentials not found. Please check your .env file for PORKBUN_API_KEY and PORKBUN_API_SECRET');
-            return 1;
-        }
-
-        $this->info('Downloading domains from Porkbun...');
-
-        try {
-            // Keep track of what we're doing
-            $totalDomains = 0;
-            $newDomains = 0;
-            $skippedDomains = 0;
-
-            // Make the API request - note we're not verifying SSL
-            $response = Http::withoutVerifying()
-                ->post("{$this->apiUrl}/domain/listAll", [
-                    'apikey' => $apiKey,
-                    'secretapikey' => $apiSecret
-                ]);
-
-            // Log what we got back (safely)
-            Log::info('API Request Details', [
-                'url' => "{$this->apiUrl}/domain/listAll",
-                'status' => $response->status(),
-                'has_response' => !empty($response->json())
-            ]);
-
-            if (!$response->successful()) {
-                $errorDetails = [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                    'headers' => $response->headers()
-                ];
-                
-                Log::error('Failed to fetch domains from Porkbun API', $errorDetails);
-                $this->error('Failed to fetch domains from Porkbun API');
-                $this->error('Status: ' . $response->status());
-                $this->error('Response: ' . $response->body());
-                return 1;
-            }
-
-            $responseData = $response->json();
-            
-            // Porkbun specific response structure check
-            if (!isset($responseData['status']) || $responseData['status'] !== 'SUCCESS') {
-                Log::error('Porkbun API returned error', ['response' => $responseData]);
-                $this->error('Porkbun API returned error: ' . ($responseData['message'] ?? 'Unknown error'));
-                return 1;
-            }
-
-            $domains = $responseData['domains'] ?? [];
-            $totalDomains = count($domains);
-
-            // Show what we found
-            $this->info("Processing {$totalDomains} domains...");
-
-            // Log a sample domain if we have any
-            if (!empty($domains)) {
-                Log::info('Sample domain structure:', ['first_domain' => json_encode($domains[0], JSON_PRETTY_PRINT)]);
-            }
-
-            // Process each domain
-            foreach ($domains as $domainData) {
-                $domainName = $domainData['domain'];
-                
-                // Skip if we already have it
-                if (Domain::where('domain', $domainName)->exists()) {
-                    $this->line("Skipping existing domain: {$domainName}");
-                    $skippedDomains++;
-                    continue;
-                }
-
-                // Convert expiry date to timestamp
-                $expTimestamp = strtotime($domainData['expireDate']);
-                
-                // In dry-run mode, just show what would happen
-                if ($this->option('dry-run')) {
-                    $this->info("Would add domain: {$domainName}");
-                    $this->line("  Expiry: " . date('Y-m-d', $expTimestamp));
-                    $this->line("  Registrar: porkbun");
-                    $newDomains++;
-                    continue;
-                }
-
-                // Actually add the domain to our database
-                Domain::create([
-                    'domain' => $domainName,
-                    'exp_date' => $expTimestamp,
-                    'registrar' => 'porkbun'
-                ]);
-                
-                $newDomains++;
-                Log::info("Added new domain: {$domainName}");
-            }
-
-            // Show the final results
-            $message = ($this->option('dry-run') ? "[DRY RUN] " : "") .
-                      "Process completed. " .
-                      "Total domains: {$totalDomains}, " .
-                      "New: {$newDomains}, " .
-                      "Skipped: {$skippedDomains}";
-            
-            Log::info($message);
-            $this->info($message);
-            
-        } catch (\Exception $e) {
-            Log::error('Error processing Porkbun domains: ' . $e->getMessage());
-            $this->error('Error: ' . $e->getMessage());
-            return 1;
-        }
-    }
-}
 </file>
 
 <file path="app/Console/Commands/DownloadSavDomains.php">
@@ -4845,200 +5375,6 @@ class DownloadSavDomains extends Command
 
         Log::info('Added new domain', ['domain' => $domainName]);
         $newDomains++;
-    }
-}
-</file>
-
-<file path="app/Console/Commands/DownloadSpaceshipDomains.php">
-<?php
-
-namespace App\Console\Commands;
-
-use App\Models\Domain;
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
-
-class DownloadSpaceshipDomains extends Command
-{
-    // Hey, I'm the command that downloads domains from Spaceship.com!
-    protected $signature = 'domains:download-spaceship {--dry-run : Run without saving to database}';
-    protected $description = 'Download domains from Spaceship.com API';
-
-    // Base URL for Spaceship API - updated to match docs
-    protected $apiUrl = 'https://spaceship.dev/api/v1';
-
-    public function handle()
-    {
-        // Let's start by logging what we're doing
-        Log::info('Starting Spaceship domains download', [
-            'dry_run' => $this->option('dry-run'),
-            'environment' => app()->environment()
-        ]);
-
-        // Get our API credentials - we need both key and secret
-        $apiKey = config('services.spaceship.api_key');
-        $apiSecret = config('services.spaceship.api_secret');
-
-        // Log that we got the credentials (but don't show them!)
-        Log::info('API Credentials Check', [
-            'key_exists' => !empty($apiKey),
-            'secret_exists' => !empty($apiSecret),
-            'key_last_4' => !empty($apiKey) ? '****' . substr($apiKey, -4) : 'EMPTY',
-            'secret_last_4' => !empty($apiSecret) ? '****' . substr($apiSecret, -4) : 'EMPTY'
-        ]);
-
-        // Make sure we have both credentials
-        if (empty($apiKey) || empty($apiSecret)) {
-            Log::error('Spaceship API credentials missing');
-            $this->error('Spaceship API credentials not found. Please check SPACESHIP_API_KEY and SPACESHIP_API_SECRET in your .env file.');
-            return 1;
-        }
-
-        $this->info('Downloading domains from Spaceship...');
-
-        try {
-            $totalDomains = 0;
-            $newDomains = 0;
-            $skippedDomains = 0;
-            $page = 0;
-            $hasMorePages = true;
-
-            while ($hasMorePages) {
-                Log::info('Fetching page', ['page' => $page]);
-
-                $response = Http::withoutVerifying()
-                    ->withHeaders([
-                        'X-API-Key' => $apiKey,
-                        'X-API-Secret' => $apiSecret,
-                    ])
-                    ->get("{$this->apiUrl}/domains", [
-                        'take' => 100,
-                        'skip' => $page * 100,
-                        'orderBy' => ['name']
-                    ]);
-
-                // Log what we tried to do
-                Log::info('API Request Details', [
-                    'url' => "{$this->apiUrl}/domains",
-                    'auth_type' => 'X-API headers',
-                    'params' => [
-                        'take' => 100,
-                        'skip' => $page * 100,
-                        'orderBy' => ['name']
-                    ]
-                ]);
-
-                // If something went wrong, let's handle it
-                if (!$response->successful()) {
-                    $errorDetails = [
-                        'status' => $response->status(),
-                        'body' => $response->body(),
-                        'headers' => $response->headers()
-                    ];
-                    
-                    Log::error('Failed to fetch domains from Spaceship API', $errorDetails);
-                    $this->error('Failed to fetch domains from Spaceship API');
-                    $this->error('Status: ' . $response->status());
-                    $this->error('Response: ' . $response->body());
-                    return 1;
-                }
-
-                // Debug: Show complete API response
-                $this->info('Complete API Response:');
-                $this->line(json_encode($response->json(), JSON_PRETTY_PRINT));
-                
-                // Update to use 'items' instead of 'domains'
-                $domains = $response->json()['items'] ?? [];
-                $currentPageCount = count($domains);
-                
-                Log::info('Retrieved domains for page', [
-                    'page' => $page,
-                    'count' => $currentPageCount
-                ]);
-
-                foreach ($domains as $domainData) {
-                    $domainName = $domainData['name'] ?? null;
-                    
-                    if (!$domainName) {
-                        Log::warning('Domain name missing in response', ['data' => $domainData]);
-                        continue;
-                    }
-
-                    // Skip existing domains
-                    if (Domain::where('domain', $domainName)->exists()) {
-                        $this->line("Skipping existing domain: {$domainName}");
-                        $skippedDomains++;
-                        continue;
-                    }
-
-                    // Convert expiry date to timestamp
-                    $expTimestamp = strtotime($domainData['expirationDate'] ?? 'now');
-                    $regTimestamp = strtotime($domainData['registrationDate'] ?? 'now');
-
-                    // Log detailed domain info
-                    Log::info('Processing domain', [
-                        'name' => $domainName,
-                        'isPremium' => $domainData['isPremium'] ?? false,
-                        'autoRenew' => $domainData['autoRenew'] ?? false,
-                        'lifecycle' => $domainData['lifecycleStatus'] ?? 'unknown',
-                        'verification' => $domainData['verificationStatus'] ?? 'unknown',
-                        'nameservers' => $domainData['nameservers']['hosts'] ?? []
-                    ]);
-
-                    if ($this->option('dry-run')) {
-                        $this->info("Would add domain: {$domainName}");
-                        $this->line("  Registration: " . date('Y-m-d', $regTimestamp));
-                        $this->line("  Expiry: " . date('Y-m-d', $expTimestamp));
-                        $this->line("  Registrar: spaceship");
-                        $this->line("  Auto Renew: " . ($domainData['autoRenew'] ? 'Yes' : 'No'));
-                        $newDomains++;
-                        continue;
-                    }
-
-                    // Save with additional fields
-                    Domain::create([
-                        'domain' => $domainName,
-                        'exp_date' => $expTimestamp,
-                        'reg_date' => $regTimestamp,
-                        'registrar' => 'spaceship',
-                        'auto_renew' => $domainData['autoRenew'] ?? false,
-                        'status' => $domainData['lifecycleStatus'] ?? 'registered',
-                        'nameservers' => json_encode($domainData['nameservers']['hosts'] ?? [])
-                    ]);
-                    
-                    $newDomains++;
-                    Log::info("Added new domain: {$domainName}");
-                }
-
-                $totalDomains += $currentPageCount;
-                
-                // Check if we should continue pagination
-                $hasMorePages = $currentPageCount >= 100;
-                $page++;
-
-                Log::info('Page processing complete', [
-                    'current_page' => $page,
-                    'has_more' => $hasMorePages,
-                    'total_so_far' => $totalDomains
-                ]);
-            }
-
-            // Tell everyone what we did
-            $message = ($this->option('dry-run') ? "[DRY RUN] " : "") .
-                      "Process completed. " .
-                      "Total domains: {$totalDomains}, " .
-                      "New: {$newDomains}, " .
-                      "Skipped: {$skippedDomains}";
-            
-            Log::info($message);
-            $this->info($message);
-            
-        } catch (\Exception $e) {
-            Log::error('Error processing Spaceship domains: ' . $e->getMessage());
-            $this->error('Error: ' . $e->getMessage());
-            return 1;
-        }
     }
 }
 </file>
@@ -5699,6 +6035,58 @@ class CreateQuotePaymentsTable20250311 extends Migration
 - Database management
 </file>
 
+<file path="README.md">
+# Domain Registrar API Integration
+
+This project supports downloading domain information from various domain registrars using their APIs.
+
+## Supported Registrars
+
+### Dynadot
+- API Documentation: https://www.dynadot.com/domain/api3.html
+- Capabilities:
+  - Download domain list
+  - Domain information retrieval
+
+### GOdaddy docs
+- API: https://developer.godaddy.com/doc/endpoint/domains#/v1/list
+
+
+### Other Registrars
+- Cosmotown
+- GoDaddy
+- Namebright
+- Namecheap
+- Name.com
+- Porkbun
+- Regery
+- SAV
+- Spaceship
+
+## Getting Started
+1. Obtain API credentials from your registrar
+2. Configure your API keys in the settings
+3. Use the download command to retrieve your domains
+
+
+### API DOWNLOAD COMPLETITION STATUS
+ -dynadot DONE
+ -godaddy DONE
+- Cosmotown - no api
+- Namebright - requires 100$
+- Namecheap DONE
+- Name.com DONE
+- Porkbun DONE
+- Regery - rare
+- SAV - whitelist ips 
+- Spaceship DONE
+
+
+### CRONTAB DOWNLOAD ALL REGISTRARS
+crontab -e
+* * * * * cd /path/to/your/project && php artisan schedule:run >> /dev/null 2>&1
+</file>
+
 <file path="resources/views/layouts/app.blade.php">
 <!doctype html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -5804,6 +6192,92 @@ class CreateQuotePaymentsTable20250311 extends Migration
     </div>
 </body>
 </html>
+</file>
+
+<file path=".cursorrules">
+use DRY, KISS methodology
+Always first explain what you plan to do and then output code.
+Leave comments like ELI15, like i am 15yo.
+Always use logging and output counters, middle work results - so we always know whats going on
+Dont verify ssl with curl
+
+<cursor-tools Integration>
+# Instructions
+Use the following commands to get AI assistance:
+
+**Web Search:**
+`cursor-tools web "<your question>"` - Get answers from the web using Perplexity AI (e.g., `cursor-tools web "latest weather in London"`)
+when using web for complex queries suggest writing the output to a file somewhere like local-research/<query summary>.md.
+
+**Repository Context:**
+`cursor-tools repo "<your question>"` - Get context-aware answers about this repository using Google Gemini (e.g., `cursor-tools repo "explain authentication flow"`)
+
+**Documentation Generation:**
+`cursor-tools doc [options]` - Generate comprehensive documentation for this repository (e.g., `cursor-tools doc --output docs.md`)
+when using doc for remote repos suggest writing the output to a file somewhere like local-docs/<repo-name>.md.
+
+**GitHub Information:**
+`cursor-tools github pr [number]` - Get the last 10 PRs, or a specific PR by number (e.g., `cursor-tools github pr 123`)
+`cursor-tools github issue [number]` - Get the last 10 issues, or a specific issue by number (e.g., `cursor-tools github issue 456`)
+
+**Browser Automation (Stateless):**
+`cursor-tools browser open <url> [options]` - Open a URL and capture page content, console logs, and network activity (e.g., `cursor-tools browser open "https://example.com" --html`)
+`cursor-tools browser act "<instruction>" --url=<url> [options]` - Execute actions on a webpage using natural language instructions (e.g., `cursor-tools browser act "Click Login" --url=https://example.com`)
+`cursor-tools browser observe "<instruction>" --url=<url> [options]` - Observe interactive elements on a webpage and suggest possible actions (e.g., `cursor-tools browser observe "interactive elements" --url=https://example.com`)
+`cursor-tools browser extract "<instruction>" --url=<url> [options]` - Extract data from a webpage based on natural language instructions (e.g., `cursor-tools browser extract "product names" --url=https://example.com/products`)
+
+**Notes on Browser Commands:**
+- All browser commands are stateless: each command starts with a fresh browser instance and closes it when done.
+- When using `--connect-to`, special URL values are supported:
+  - `current`: Use the existing page without reloading
+  - `reload-current`: Use the existing page and refresh it (useful in development)
+- Multi step workflows involving state or combining multiple actions are supported in the `act` command using the pipe (|) separator (e.g., `cursor-tools browser act "Click Login | Type 'user@example.com' into email | Click Submit" --url=https://example.com`)
+- Video recording is available for all browser commands using the `--video=<directory>` option. This will save a video of the entire browser interaction at 1280x720 resolution. The video file will be saved in the specified directory with a timestamp.
+- DO NOT ask browser act to "wait" for anything, the wait command is currently disabled in Stagehand.
+
+**Tool Recommendations:**
+- `cursor-tools web` is best for general web information not specific to the repository.
+- `cursor-tools repo` is ideal for repository-specific questions, planning, code review and debugging.
+- `cursor-tools doc` generates documentation for local or remote repositories.
+- `cursor-tools browser` is useful for testing and debugging web apps.
+
+**Running Commands:**
+1. **Installed version:** Use `cursor-tools <command>` (if in PATH) or `npm exec cursor-tools "<command>"`, `yarn cursor-tools "<command>"`, `pnpm cursor-tools "<command>"`.
+2. **Without installation:** Use `npx -y cursor-tools@latest "<command>"` or `bunx -y cursor-tools@latest "<command>"`.
+
+**General Command Options (Supported by all commands):**
+--model=<model name>: Specify an alternative AI model to use
+--max-tokens=<number>: Control response length
+--save-to=<file path>: Save command output to a file (in *addition* to displaying it)
+--help: View all available options (help is not fully implemented yet)
+
+**Documentation Command Options:**
+--from-github=<GitHub username>/<repository name>[@<branch>]: Generate documentation for a remote GitHub repository
+
+**GitHub Command Options:**
+--from-github=<GitHub username>/<repository name>[@<branch>]: Access PRs/issues from a specific GitHub repository
+
+**Browser Command Options (for 'open', 'act', 'observe', 'extract'):**
+--console: Capture browser console logs (enabled by default, use --no-console to disable)
+--html: Capture page HTML content
+--network: Capture network activity (enabled by default, use --no-network to disable)
+--screenshot=<file path>: Save a screenshot of the page
+--timeout=<milliseconds>: Set navigation timeout (default: 30000ms)
+--viewport=<width>x<height>: Set viewport size (e.g., 1280x720). When using --connect-to, viewport is only changed if this option is explicitly provided
+--headless: Run browser in headless mode (default: true)
+--no-headless: Show browser UI (non-headless mode) for debugging
+--connect-to=<port>: Connect to existing Chrome instance
+--wait=<duration or selector>: Wait after page load (e.g., '5s', '#element-id', 'selector:.my-class')
+--video=<directory>: Save a video recording of the browser interaction to the specified directory (1280x720 resolution). Not available when using --connect-to
+
+**Additional Notes:**
+- For detailed information, see `node_modules/cursor-tools/README.md` (if installed locally).
+- Configuration is in `cursor-tools.config.json` (or `~/.cursor-tools/config.json`).
+- API keys are loaded from `.cursor-tools.env` (or `~/.cursor-tools/.env`).
+- Browser commands require separate installation of Playwright: `npm install --save-dev playwright` or `npm install -g playwright`.
+- **Remember:** You're part of a team of superhuman expert AIs. Work together to solve complex problems.
+<!-- cursor-tools-version: 0.5.0 -->
+</cursor-tools Integration>
 </file>
 
 <file path="app/Console/Kernel.php">
@@ -6324,90 +6798,195 @@ document.addEventListener('DOMContentLoaded', function () {
 @endsection
 </file>
 
-<file path=".cursorrules">
-use DRY, KISS methodology
-Always first explain what you plan to do and then output code.
-Leave comments like ELI15, like i am 15yo.
-Always use logging and output counters, middle work results - so we always know whats going on
-Dont verify ssl with curl
+<file path="app/Console/Commands/DownloadAllDomains.php">
+<?php
 
-<cursor-tools Integration>
-# Instructions
-Use the following commands to get AI assistance:
+namespace App\Console\Commands;
 
-**Web Search:**
-`cursor-tools web "<your question>"` - Get answers from the web using Perplexity AI (e.g., `cursor-tools web "latest weather in London"`)
-when using web for complex queries suggest writing the output to a file somewhere like local-research/<query summary>.md.
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Artisan;
+use Symfony\Component\Finder\Finder;
 
-**Repository Context:**
-`cursor-tools repo "<your question>"` - Get context-aware answers about this repository using Google Gemini (e.g., `cursor-tools repo "explain authentication flow"`)
+class DownloadAllDomains extends Command
+{
+    // Hey! This command will run all Download* commands in the app/Console/Commands directory
+    protected $signature = 'domains:download-all';
+    protected $description = 'Run all domain download commands';
 
-**Documentation Generation:**
-`cursor-tools doc [options]` - Generate comprehensive documentation for this repository (e.g., `cursor-tools doc --output docs.md`)
-when using doc for remote repos suggest writing the output to a file somewhere like local-docs/<repo-name>.md.
-
-**GitHub Information:**
-`cursor-tools github pr [number]` - Get the last 10 PRs, or a specific PR by number (e.g., `cursor-tools github pr 123`)
-`cursor-tools github issue [number]` - Get the last 10 issues, or a specific issue by number (e.g., `cursor-tools github issue 456`)
-
-**Browser Automation (Stateless):**
-`cursor-tools browser open <url> [options]` - Open a URL and capture page content, console logs, and network activity (e.g., `cursor-tools browser open "https://example.com" --html`)
-`cursor-tools browser act "<instruction>" --url=<url> [options]` - Execute actions on a webpage using natural language instructions (e.g., `cursor-tools browser act "Click Login" --url=https://example.com`)
-`cursor-tools browser observe "<instruction>" --url=<url> [options]` - Observe interactive elements on a webpage and suggest possible actions (e.g., `cursor-tools browser observe "interactive elements" --url=https://example.com`)
-`cursor-tools browser extract "<instruction>" --url=<url> [options]` - Extract data from a webpage based on natural language instructions (e.g., `cursor-tools browser extract "product names" --url=https://example.com/products`)
-
-**Notes on Browser Commands:**
-- All browser commands are stateless: each command starts with a fresh browser instance and closes it when done.
-- When using `--connect-to`, special URL values are supported:
-  - `current`: Use the existing page without reloading
-  - `reload-current`: Use the existing page and refresh it (useful in development)
-- Multi step workflows involving state or combining multiple actions are supported in the `act` command using the pipe (|) separator (e.g., `cursor-tools browser act "Click Login | Type 'user@example.com' into email | Click Submit" --url=https://example.com`)
-- Video recording is available for all browser commands using the `--video=<directory>` option. This will save a video of the entire browser interaction at 1280x720 resolution. The video file will be saved in the specified directory with a timestamp.
-- DO NOT ask browser act to "wait" for anything, the wait command is currently disabled in Stagehand.
-
-**Tool Recommendations:**
-- `cursor-tools web` is best for general web information not specific to the repository.
-- `cursor-tools repo` is ideal for repository-specific questions, planning, code review and debugging.
-- `cursor-tools doc` generates documentation for local or remote repositories.
-- `cursor-tools browser` is useful for testing and debugging web apps.
-
-**Running Commands:**
-1. **Installed version:** Use `cursor-tools <command>` (if in PATH) or `npm exec cursor-tools "<command>"`, `yarn cursor-tools "<command>"`, `pnpm cursor-tools "<command>"`.
-2. **Without installation:** Use `npx -y cursor-tools@latest "<command>"` or `bunx -y cursor-tools@latest "<command>"`.
-
-**General Command Options (Supported by all commands):**
---model=<model name>: Specify an alternative AI model to use
---max-tokens=<number>: Control response length
---save-to=<file path>: Save command output to a file (in *addition* to displaying it)
---help: View all available options (help is not fully implemented yet)
-
-**Documentation Command Options:**
---from-github=<GitHub username>/<repository name>[@<branch>]: Generate documentation for a remote GitHub repository
-
-**GitHub Command Options:**
---from-github=<GitHub username>/<repository name>[@<branch>]: Access PRs/issues from a specific GitHub repository
-
-**Browser Command Options (for 'open', 'act', 'observe', 'extract'):**
---console: Capture browser console logs (enabled by default, use --no-console to disable)
---html: Capture page HTML content
---network: Capture network activity (enabled by default, use --no-network to disable)
---screenshot=<file path>: Save a screenshot of the page
---timeout=<milliseconds>: Set navigation timeout (default: 30000ms)
---viewport=<width>x<height>: Set viewport size (e.g., 1280x720). When using --connect-to, viewport is only changed if this option is explicitly provided
---headless: Run browser in headless mode (default: true)
---no-headless: Show browser UI (non-headless mode) for debugging
---connect-to=<port>: Connect to existing Chrome instance
---wait=<duration or selector>: Wait after page load (e.g., '5s', '#element-id', 'selector:.my-class')
---video=<directory>: Save a video recording of the browser interaction to the specified directory (1280x720 resolution). Not available when using --connect-to
-
-**Additional Notes:**
-- For detailed information, see `node_modules/cursor-tools/README.md` (if installed locally).
-- Configuration is in `cursor-tools.config.json` (or `~/.cursor-tools/config.json`).
-- API keys are loaded from `.cursor-tools.env` (or `~/.cursor-tools/.env`).
-- Browser commands require separate installation of Playwright: `npm install --save-dev playwright` or `npm install -g playwright`.
-- **Remember:** You're part of a team of superhuman expert AIs. Work together to solve complex problems.
-<!-- cursor-tools-version: 0.5.0 -->
-</cursor-tools Integration>
+    public function handle()
+    {
+        // Start logging our journey!
+        Log::info('Starting to run all domain download commands');
+        
+        // Find all Download* commands in the Commands directory
+        $finder = new Finder();
+        $finder->files()
+               ->in(app_path('Console/Commands'))
+               ->name('Download*.php');
+        
+        // Initialize our counters and collectors
+        $totalCommands = 0;
+        $successfulCommands = 0;
+        $failedCommands = [];
+        $commandOutputs = []; // New array to store all outputs
+        $processCompletedLines = []; // Initialize collector for Process completed lines
+        
+        $this->info('Searching for download commands...');
+        
+        $commands = [];
+        foreach ($finder as $file) {
+            // Get command name from filename (remove .php and convert to kebab-case)
+            $className = $file->getBasename('.php');
+            // Skip ourselves to avoid infinite loop
+            if ($className === 'DownloadAllDomains') {
+                continue;
+            }
+            
+            // Convert DownloadSpaceshipDomains to domains:download-spaceship
+            $commandName = 'domains:download-' . strtolower(preg_replace(
+                ['/([a-z])([A-Z])/', '/^Download/', '/Domains$/', '/-$/'],
+                ['$1-$2', '', '', ''],
+                $className
+            ));
+            
+            // Clean up any double hyphens and trailing hyphens
+            $commandName = rtrim(str_replace('--', '-', $commandName), '-');
+            
+            $commands[] = $commandName;
+            $totalCommands++;
+        }
+        
+        if ($totalCommands === 0) {
+            $message = 'No download commands found!';
+            Log::warning($message);
+            $this->warn($message);
+            return 1;
+        }
+        
+        $this->info("Found {$totalCommands} download commands to execute");
+        
+        // Run each command and collect output
+        foreach ($commands as $index => $command) {
+            $commandNumber = $index + 1;
+            Log::info("Executing command {$commandNumber}/{$totalCommands}: {$command}");
+            $this->info("\n[{$commandNumber}/{$totalCommands}] Running {$command}...");
+            
+            try {
+                // Run the command and capture its exit code
+                $startTime = microtime(true);
+                $exitCode = Artisan::call($command);
+                $executionTime = round(microtime(true) - $startTime, 2);
+                
+                // Get the output from the command
+                $output = trim(Artisan::output());
+                
+                // Extract "Process completed" line if exists
+                if (preg_match('/Process completed.*$/m', $output, $matches)) {
+                    // Add command name before the Process completed line
+                    $processCompletedLines[] = "[{$command}] " . $matches[0];
+                }
+                
+                // Store the command results
+                $commandOutputs[$command] = [
+                    'status' => $exitCode === 0 ? 'SUCCESS' : 'FAILED',
+                    'execution_time' => $executionTime,
+                    'output' => $output,
+                    'exit_code' => $exitCode
+                ];
+                
+                if ($exitCode === 0) {
+                    $successfulCommands++;
+                    Log::info("Successfully executed {$command} in {$executionTime}s");
+                } else {
+                    $failedCommands[] = $command;
+                    Log::error("Command {$command} failed with exit code {$exitCode} after {$executionTime}s");
+                    Log::error("Output: {$output}");
+                }
+                
+            } catch (\Exception $e) {
+                $failedCommands[] = $command;
+                $commandOutputs[$command] = [
+                    'status' => 'ERROR',
+                    'execution_time' => 0,
+                    'output' => $e->getMessage(),
+                    'exit_code' => -1
+                ];
+                Log::error("Exception running {$command}: " . $e->getMessage());
+            }
+        }
+        
+        // Display detailed summary
+        $this->newLine(2);
+        $this->info('=== EXECUTION SUMMARY ===');
+        foreach ($commandOutputs as $command => $result) {
+            $this->info("\n🔹 {$command}");
+            $this->info("Status: {$result['status']}");
+            $this->info("Time: {$result['execution_time']}s");
+            $this->info("Exit Code: {$result['exit_code']}");
+            $this->info("Output:");
+            $this->line($result['output']);
+            $this->line(str_repeat('-', 50));
+        }
+        
+        // Show final statistics
+        $message = sprintf(
+            "\n📊 FINAL STATISTICS:\n" .
+            "Total commands: %d\n" .
+            "Successful: %d\n" .
+            "Failed: %d",
+            $totalCommands,
+            $successfulCommands,
+            count($failedCommands)
+        );
+        
+        Log::info($message);
+        $this->info($message);
+        
+        if (!empty($failedCommands)) {
+            $this->error("❌ Failed commands: " . implode(', ', $failedCommands));
+        }
+        
+        // Send Process completed lines to Telegram if we have any
+        if (!empty($processCompletedLines)) {
+            $telegramMessage = "Domain Download Summary:\n\n" . implode("\n", $processCompletedLines);
+            
+            // Initialize cURL
+            $curl = curl_init();
+            
+            // Set cURL options
+            curl_setopt_array($curl, [
+                CURLOPT_URL => 'https://api.telegram.org/bot1790397670:AAFsAoJ5Qju9V4phdq5cflhJF938uS7t2QI/sendMessage',
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_SSL_VERIFYPEER => false, // As per your requirements to not verify SSL
+                CURLOPT_POSTFIELDS => [
+                    'chat_id' => '-4188687896',
+                    'text' => $telegramMessage
+                ]
+            ]);
+            
+            // Execute the request
+            $response = curl_exec($curl);
+            $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            
+            // Check for errors
+            if ($response === false || $httpCode !== 200) {
+                $error = curl_error($curl);
+                Log::error('Failed to send message to Telegram: ' . $error);
+                $this->error('Failed to send message to Telegram: ' . $error);
+            } else {
+                Log::info('Successfully sent summary to Telegram');
+                $this->info('Successfully sent summary to Telegram');
+            }
+            
+            // Close cURL session
+            curl_close($curl);
+        }
+        
+        return count($failedCommands) === 0 ? 0 : 1;
+    }
+}
 </file>
 
 <file path="app/Providers/DomainServiceProvider.php">
@@ -6689,71 +7268,6 @@ ADD COLUMN fulfillment_percentage DECIMAL(5,2);
 - Current quote system
 - Registrar APIs
 - User authentication system
-</file>
-
-<file path="config/services.php">
-<?php
-
-return [
-
-    /*
-    |--------------------------------------------------------------------------
-    | Third Party Services
-    |--------------------------------------------------------------------------
-    |
-    | This file is for storing the credentials for third party services such
-    | as Mailgun, Postmark, AWS and more. This file provides the de facto
-    | location for this type of information, allowing packages to have
-    | a conventional file to locate the various service credentials.
-    |
-    */
-
-    'mailgun' => [
-        'domain' => env('MAILGUN_DOMAIN'),
-        'secret' => env('MAILGUN_SECRET'),
-        'endpoint' => env('MAILGUN_ENDPOINT', 'api.mailgun.net'),
-        'scheme' => 'https',
-    ],
-
-    'postmark' => [
-        'token' => env('POSTMARK_TOKEN'),
-    ],
-
-    'ses' => [
-        'key' => env('AWS_ACCESS_KEY_ID'),
-        'secret' => env('AWS_SECRET_ACCESS_KEY'),
-        'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
-    ],
-
-    'dynadot' => [
-        'api_key' => env('DYNADOT_API_KEY'),
-    ],
-
-    'godaddy' => [
-        'api_key' => env('GODADDY_API_KEY'),
-    ],
-
-    'namecom' => [
-        'api_key' => env('NAMECOM_API_KEY'),
-    ],
-
-    'namecheap' => [
-        'api_key' => env('NAMECHEAP_API_KEY'),
-        'username' => env('NAMECHEAP_USERNAME'),
-        'client_ip' => env('NAMECHEAP_CLIENT_IP', '127.0.0.1'),
-    ],
-
-    'porkbun' => [
-        'api_key' => env('PORKBUN_API_KEY'),
-        'api_secret' => env('PORKBUN_API_SECRET'),
-    ],
-
-    'spaceship' => [
-        'api_key' => env('SPACESHIP_API_KEY'),
-        'api_secret' => env('SPACESHIP_API_SECRET'),
-    ],
-
-];
 </file>
 
 <file path="app/Services/PricingService.php">
@@ -7071,58 +7585,6 @@ class WhoisService
 }
 </file>
 
-<file path="README.md">
-# Domain Registrar API Integration
-
-This project supports downloading domain information from various domain registrars using their APIs.
-
-## Supported Registrars
-
-### Dynadot
-- API Documentation: https://www.dynadot.com/domain/api3.html
-- Capabilities:
-  - Download domain list
-  - Domain information retrieval
-
-### GOdaddy docs
-- API: https://developer.godaddy.com/doc/endpoint/domains#/v1/list
-
-
-### Other Registrars
-- Cosmotown
-- GoDaddy
-- Namebright
-- Namecheap
-- Name.com
-- Porkbun
-- Regery
-- SAV
-- Spaceship
-
-## Getting Started
-1. Obtain API credentials from your registrar
-2. Configure your API keys in the settings
-3. Use the download command to retrieve your domains
-
-
-### API DOWNLOAD COMPLETITION STATUS
- -dynadot DONE
- -godaddy DONE
-- Cosmotown - no api
-- Namebright - requires 100$
-- Namecheap DONE
-- Name.com DONE
-- Porkbun DONE
-- Regery - rare
-- SAV - whitelist ips 
-- Spaceship DONE
-
-
-### CRONTAB DOWNLOAD ALL REGISTRARS
-crontab -e
-* * * * * cd /path/to/your/project && php artisan schedule:run >> /dev/null 2>&1
-</file>
-
 <file path="resources/views/getquote.blade.php">
 @extends('layouts.app')
 
@@ -7351,197 +7813,6 @@ document.getElementById('download-csv-button').addEventListener('click', functio
 });
 </script>
 @endsection
-</file>
-
-<file path="app/Console/Commands/DownloadAllDomains.php">
-<?php
-
-namespace App\Console\Commands;
-
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Artisan;
-use Symfony\Component\Finder\Finder;
-
-class DownloadAllDomains extends Command
-{
-    // Hey! This command will run all Download* commands in the app/Console/Commands directory
-    protected $signature = 'domains:download-all';
-    protected $description = 'Run all domain download commands';
-
-    public function handle()
-    {
-        // Start logging our journey!
-        Log::info('Starting to run all domain download commands');
-        
-        // Find all Download* commands in the Commands directory
-        $finder = new Finder();
-        $finder->files()
-               ->in(app_path('Console/Commands'))
-               ->name('Download*.php');
-        
-        // Initialize our counters and collectors
-        $totalCommands = 0;
-        $successfulCommands = 0;
-        $failedCommands = [];
-        $commandOutputs = []; // New array to store all outputs
-        $processCompletedLines = []; // Initialize collector for Process completed lines
-        
-        $this->info('Searching for download commands...');
-        
-        $commands = [];
-        foreach ($finder as $file) {
-            // Get command name from filename (remove .php and convert to kebab-case)
-            $className = $file->getBasename('.php');
-            // Skip ourselves to avoid infinite loop
-            if ($className === 'DownloadAllDomains') {
-                continue;
-            }
-            
-            // Convert DownloadSpaceshipDomains to domains:download-spaceship
-            $commandName = 'domains:download-' . strtolower(preg_replace(
-                ['/([a-z])([A-Z])/', '/^Download/', '/Domains$/', '/-$/'],
-                ['$1-$2', '', '', ''],
-                $className
-            ));
-            
-            // Clean up any double hyphens and trailing hyphens
-            $commandName = rtrim(str_replace('--', '-', $commandName), '-');
-            
-            $commands[] = $commandName;
-            $totalCommands++;
-        }
-        
-        if ($totalCommands === 0) {
-            $message = 'No download commands found!';
-            Log::warning($message);
-            $this->warn($message);
-            return 1;
-        }
-        
-        $this->info("Found {$totalCommands} download commands to execute");
-        
-        // Run each command and collect output
-        foreach ($commands as $index => $command) {
-            $commandNumber = $index + 1;
-            Log::info("Executing command {$commandNumber}/{$totalCommands}: {$command}");
-            $this->info("\n[{$commandNumber}/{$totalCommands}] Running {$command}...");
-            
-            try {
-                // Run the command and capture its exit code
-                $startTime = microtime(true);
-                $exitCode = Artisan::call($command);
-                $executionTime = round(microtime(true) - $startTime, 2);
-                
-                // Get the output from the command
-                $output = trim(Artisan::output());
-                
-                // Extract "Process completed" line if exists
-                if (preg_match('/Process completed.*$/m', $output, $matches)) {
-                    // Add command name before the Process completed line
-                    $processCompletedLines[] = "[{$command}] " . $matches[0];
-                }
-                
-                // Store the command results
-                $commandOutputs[$command] = [
-                    'status' => $exitCode === 0 ? 'SUCCESS' : 'FAILED',
-                    'execution_time' => $executionTime,
-                    'output' => $output,
-                    'exit_code' => $exitCode
-                ];
-                
-                if ($exitCode === 0) {
-                    $successfulCommands++;
-                    Log::info("Successfully executed {$command} in {$executionTime}s");
-                } else {
-                    $failedCommands[] = $command;
-                    Log::error("Command {$command} failed with exit code {$exitCode} after {$executionTime}s");
-                    Log::error("Output: {$output}");
-                }
-                
-            } catch (\Exception $e) {
-                $failedCommands[] = $command;
-                $commandOutputs[$command] = [
-                    'status' => 'ERROR',
-                    'execution_time' => 0,
-                    'output' => $e->getMessage(),
-                    'exit_code' => -1
-                ];
-                Log::error("Exception running {$command}: " . $e->getMessage());
-            }
-        }
-        
-        // Display detailed summary
-        $this->newLine(2);
-        $this->info('=== EXECUTION SUMMARY ===');
-        foreach ($commandOutputs as $command => $result) {
-            $this->info("\n🔹 {$command}");
-            $this->info("Status: {$result['status']}");
-            $this->info("Time: {$result['execution_time']}s");
-            $this->info("Exit Code: {$result['exit_code']}");
-            $this->info("Output:");
-            $this->line($result['output']);
-            $this->line(str_repeat('-', 50));
-        }
-        
-        // Show final statistics
-        $message = sprintf(
-            "\n📊 FINAL STATISTICS:\n" .
-            "Total commands: %d\n" .
-            "Successful: %d\n" .
-            "Failed: %d",
-            $totalCommands,
-            $successfulCommands,
-            count($failedCommands)
-        );
-        
-        Log::info($message);
-        $this->info($message);
-        
-        if (!empty($failedCommands)) {
-            $this->error("❌ Failed commands: " . implode(', ', $failedCommands));
-        }
-        
-        // Send Process completed lines to Telegram if we have any
-        if (!empty($processCompletedLines)) {
-            $telegramMessage = "Domain Download Summary:\n\n" . implode("\n", $processCompletedLines);
-            
-            // Initialize cURL
-            $curl = curl_init();
-            
-            // Set cURL options
-            curl_setopt_array($curl, [
-                CURLOPT_URL => 'https://api.telegram.org/bot1790397670:AAFsAoJ5Qju9V4phdq5cflhJF938uS7t2QI/sendMessage',
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_POST => true,
-                CURLOPT_SSL_VERIFYPEER => false, // As per your requirements to not verify SSL
-                CURLOPT_POSTFIELDS => [
-                    'chat_id' => '-4188687896',
-                    'text' => $telegramMessage
-                ]
-            ]);
-            
-            // Execute the request
-            $response = curl_exec($curl);
-            $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-            
-            // Check for errors
-            if ($response === false || $httpCode !== 200) {
-                $error = curl_error($curl);
-                Log::error('Failed to send message to Telegram: ' . $error);
-                $this->error('Failed to send message to Telegram: ' . $error);
-            } else {
-                Log::info('Successfully sent summary to Telegram');
-                $this->info('Successfully sent summary to Telegram');
-            }
-            
-            // Close cURL session
-            curl_close($curl);
-        }
-        
-        return count($failedCommands) === 0 ? 0 : 1;
-    }
-}
 </file>
 
 <file path="app/Http/Controllers/GetQuoteController.php">
@@ -7877,6 +8148,76 @@ This is to comply with the instruction of not verifying SSL in curl.
 */
 </file>
 
+<file path="routes/web.php">
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\UploadController;
+use App\Http\Controllers\DomainController;
+use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\GetQuoteController;
+use App\Http\Controllers\Auth\LoginController;
+use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\UserController;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register web routes for your application. These
+| routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "web" middleware group. Make something great!
+|
+*/
+
+Route::get('/', function () {
+    if (auth()->check()) {
+        if (auth()->user()->is_admin) {
+            return redirect('/domains');
+        }
+        return redirect('/home');
+    }
+    return redirect('/getquote');
+});
+
+// Admin routes
+Route::middleware(['auth', 'admin'])->group(function () {
+    // Upload functionality - admin only
+    Route::get('/upload', [UploadController::class, 'showUploadForm'])->name('domains.uploadForm');
+    Route::post('/upload', [UploadController::class, 'uploadDomains'])->name('domains.upload');
+
+    // Domain management - admin only
+    Route::delete('/domains/', [DomainController::class, 'destroy'])->name('domains.destroy');
+    Route::post('/domains/mark-as-sold', [DomainController::class, 'markAsSold'])->name('domains.markAsSold');
+    Route::get('/domains', [DomainController::class, 'index'])->name('domains.index');
+    Route::post('/domains/filter', [DomainController::class, 'index'])->name('domains.filter');
+    Route::get('/domains/export', [DomainController::class, 'exportCsv'])->name('domains.export');
+
+    // Add new route for registrar filtering
+    Route::get('/domains/registrar/{registrar}', [DomainController::class, 'indexByRegistrar'])
+        ->name('domains.byRegistrar');
+});
+
+// Authenticated user routes (non-admin)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+    
+    // Add these new routes for payment details
+    Route::get('/dashboard', [UserController::class, 'dashboard'])->name('dashboard');
+    Route::post('/user/payment', [UserController::class, 'updatePaymentDetails'])->name('user.payment.update');
+});
+
+// Public routes
+Route::get('/public', [DomainController::class, 'publicList'])->name('domains.public');
+Route::get('/getquote/{uuid?}', [GetQuoteController::class, 'showForm'])->name('getquote.form');
+Route::post('/getquote', [GetQuoteController::class, 'getQuote'])->name('getquote.process');
+
+// Authentication routes
+Auth::routes(['register' => true]);
+Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+</file>
+
 <file path="app/Http/Controllers/DomainController.php">
 <?php
 
@@ -7905,11 +8246,11 @@ class DomainController extends Controller
     {
         $status = $request->query('status', 'ACTIVE'); // Get status from query, default to ACTIVE
         
-        // Start building the query
+        // Start building the query for the main table
         $query = Domain::select('*', DB::raw('DATEDIFF(FROM_UNIXTIME(exp_date), NOW()) as days_left'))
                         ->where('status', $status); // Filter by status
         
-        // Check if domain list filter is provided
+        // Check if domain list filter is provided for the main table
         if ($request->has('domain_list') && !empty($request->input('domain_list'))) {
             // Split the input by newlines and clean up each domain
             $domainList = explode("\n", $request->input('domain_list'));
@@ -7925,7 +8266,7 @@ class DomainController extends Controller
             }
         }
         
-        // Execute the query and process results
+        // Execute the query and process results for the main table
         $domains = $query->orderBy('exp_date')
                          ->get()
                          ->map(function ($domain) {
@@ -7934,19 +8275,70 @@ class DomainController extends Controller
                              return $domain;
                          });
         
-        $total = $domains->count();
-        $active = Domain::where('status', 'ACTIVE')->count();
-        $sold = Domain::where('status', 'SOLD')->count();
+        // --- Calculate Histogram Data ---
+        // ELI15: Get all active domains just for the histogram, regardless of the table filter.
+        $allActiveDomains = Domain::select(DB::raw('DATEDIFF(FROM_UNIXTIME(exp_date), NOW()) as days_left'))
+                                  ->where('status', 'ACTIVE')
+                                  ->get();
+
+        // ELI15: Define the buckets (ranges) for our histogram graph.
+        $buckets = [
+            '0-29' => 0, '30-59' => 0, '60-89' => 0, '90-119' => 0, 
+            '120-149' => 0, '150-179' => 0, '180-209' => 0, '210-239' => 0,
+            '240-269' => 0, '270-299' => 0, '300-329' => 0, '330-359' => 0,
+            '360+' => 0
+        ];
+        $bucketRanges = [
+            29 => '0-29', 59 => '30-59', 89 => '60-89', 119 => '90-119',
+            149 => '120-149', 179 => '150-179', 209 => '180-209', 239 => '210-239',
+            269 => '240-269', 299 => '270-299', 329 => '300-329', 359 => '330-359'
+        ];
+
+        // ELI15: Count how many domains fall into each bucket based on their days_left.
+        foreach ($allActiveDomains as $domain) {
+            $days = $domain->days_left;
+            if ($days < 0) continue; // Ignore expired domains for histogram
+
+            $bucketKey = '360+'; // Default for domains expiring far in the future
+            foreach ($bucketRanges as $maxDays => $key) {
+                if ($days <= $maxDays) {
+                    $bucketKey = $key;
+                    break;
+                }
+            }
+            $buckets[$bucketKey]++;
+        }
+        
+        // ELI15: Prepare the data for the chart, only if status is ACTIVE.
+        if ($status === 'ACTIVE') {
+            $histogramData = [
+                'labels' => array_keys($buckets),
+                'counts' => array_values($buckets)
+            ];
+            \Log::info('Histogram Data Prepared:', $histogramData);
+        } else {
+            // ELI15: Provide default empty data if not viewing ACTIVE domains.
+            $histogramData = ['labels' => [], 'counts' => []];
+            \Log::info('Not viewing ACTIVE domains, histogram data is empty.');
+        }
+        // --- End Histogram Data Calculation ---
+
+        $total = $domains->count(); // Count based on the potentially filtered $domains
+        $active = Domain::where('status', 'ACTIVE')->count(); // Total active count
+        $sold = Domain::where('status', 'SOLD')->count();     // Total sold count
         $activeDomainsByRegistrar = Domain::select('registrar', DB::raw('count(*) as total'))
                                            ->where('status', 'ACTIVE')
                                            ->groupBy('registrar')
                                            ->get();
-        \Log::info('Total domains after filtering: ' . $total);
+        \Log::info('Total domains (filtered/view) count: ' . $total);
+        \Log::info('Total active domains count: ' . $active);
+        \Log::info('Total sold domains count: ' . $sold);
 
         // Pass additional variable to indicate if filtering is active
         $isFiltered = $request->has('domain_list') && !empty($request->input('domain_list'));
         
-        return view('domains.index', compact('domains', 'total', 'status', 'active', 'sold', 'activeDomainsByRegistrar', 'isFiltered'));
+        // ELI15: Send all the data (domains for the table, counts, histogram data) to the page.
+        return view('domains.index', compact('domains', 'total', 'status', 'active', 'sold', 'activeDomainsByRegistrar', 'isFiltered', 'histogramData'));
     }
 
     /**
@@ -7960,17 +8352,18 @@ class DomainController extends Controller
         // Get domain extension (everything after the last dot)
         $extension = strtolower(substr(strrchr($domain, '.'), 1));
         
-        \Log::info("Calculating price for domain: $domain (Days left: $daysLeft, Extension: $extension)");
+        // ELI15: Log calculation details to help understand pricing.
+        // Log::info("Calculating price for domain: $domain (Days left: $daysLeft, Extension: $extension)");
         
         // Very urgent domains (less than 15 days)
         if ($daysLeft < 15) {
-            \Log::info("Price set to URGENT: $" . self::PRICE_URGENT);
+            // Log::info("Price set to URGENT: $" . self::PRICE_URGENT);
             return self::PRICE_URGENT;
         }
         
         // Soon expiring domains (15-30 days)
         if ($daysLeft < 30) {
-            \Log::info("Price set to SOON: $" . self::PRICE_SOON);
+            // Log::info("Price set to SOON: $" . self::PRICE_SOON);
             return self::PRICE_SOON;
         }
         
@@ -7980,20 +8373,20 @@ class DomainController extends Controller
         // Normal expiration (30-91 days)
         if ($daysLeft < 91) {
             $price = $isPremium ? self::PRICE_NORMAL_PREMIUM : self::PRICE_NORMAL_REGULAR;
-            \Log::info("Price set to NORMAL (" . ($isPremium ? 'Premium' : 'Regular') . "): $$price");
+            // Log::info("Price set to NORMAL (" . ($isPremium ? 'Premium' : 'Regular') . "): $$price");
             return $price;
         }
         
         // Very long expiration (200+ days) with different pricing for premium domains
         if ($daysLeft >= 200) {
             $price = $isPremium ? self::PRICE_VERY_LONG_PREMIUM : self::PRICE_VERY_LONG_REGULAR;
-            \Log::info("Price set to VERY LONG (" . ($isPremium ? 'Premium' : 'Regular') . "): $$price");
+            // Log::info("Price set to VERY LONG (" . ($isPremium ? 'Premium' : 'Regular') . "): $$price");
             return $price;
         }
         
         // Long expiration (91-199 days)
         $price = $isPremium ? self::PRICE_LONG_PREMIUM : self::PRICE_LONG_REGULAR;
-        \Log::info("Price set to LONG (" . ($isPremium ? 'Premium' : 'Regular') . "): $$price");
+        // Log::info("Price set to LONG (" . ($isPremium ? 'Premium' : 'Regular') . "): $$price");
         return $price;
     }
 
@@ -8114,7 +8507,43 @@ class DomainController extends Controller
                              return $domain;
                          });
 
-        // Get counts for the statistics
+        // --- Calculate Histogram Data (Similar to index method) ---
+        // ELI15: Get active domains for this specific registrar for the histogram.
+        $allActiveDomains = Domain::select(DB::raw('DATEDIFF(FROM_UNIXTIME(exp_date), NOW()) as days_left'))
+                                  ->where('status', 'ACTIVE')
+                                  ->where('registrar', $registrar)
+                                  ->get();
+        $buckets = [
+            '0-29' => 0, '30-59' => 0, '60-89' => 0, '90-119' => 0, 
+            '120-149' => 0, '150-179' => 0, '180-209' => 0, '210-239' => 0,
+            '240-269' => 0, '270-299' => 0, '300-329' => 0, '330-359' => 0,
+            '360+' => 0
+        ];
+        $bucketRanges = [
+            29 => '0-29', 59 => '30-59', 89 => '60-89', 119 => '90-119',
+            149 => '120-149', 179 => '150-179', 209 => '180-209', 239 => '210-239',
+            269 => '240-269', 299 => '270-299', 329 => '300-329', 359 => '330-359'
+        ];
+        foreach ($allActiveDomains as $domain) {
+            $days = $domain->days_left;
+            if ($days < 0) continue;
+            $bucketKey = '360+';
+            foreach ($bucketRanges as $maxDays => $key) {
+                if ($days <= $maxDays) {
+                    $bucketKey = $key;
+                    break;
+                }
+            }
+            $buckets[$bucketKey]++;
+        }
+        $histogramData = [
+            'labels' => array_keys($buckets),
+            'counts' => array_values($buckets)
+        ];
+        \Log::info("Histogram Data Prepared for registrar {$registrar}:", $histogramData);
+        // --- End Histogram Data Calculation ---
+
+        // Get total counts for the statistics (these remain global)
         $total = $domains->count();
         $active = Domain::where('status', 'ACTIVE')->count();
         $sold = Domain::where('status', 'SOLD')->count();
@@ -8131,80 +8560,11 @@ class DomainController extends Controller
             'active',
             'sold',
             'activeDomainsByRegistrar',
-            'registrar'  // Pass the current registrar to highlight it in the view
+            'registrar',  // Pass the current registrar to highlight it in the view
+            'histogramData' // Pass histogram data
         ));
     }
 }
-</file>
-
-<file path="routes/web.php">
-<?php
-
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\UploadController;
-use App\Http\Controllers\DomainController;
-use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\GetQuoteController;
-use App\Http\Controllers\Auth\LoginController;
-use Illuminate\Support\Facades\Log;
-use App\Http\Controllers\UserController;
-
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group. Make something great!
-|
-*/
-
-Route::get('/', function () {
-    if (auth()->check()) {
-        if (auth()->user()->is_admin) {
-            return redirect('/domains');
-        }
-        return redirect('/home');
-    }
-    return redirect('/getquote');
-});
-
-// Admin routes
-Route::middleware(['auth', 'admin'])->group(function () {
-    // Upload functionality - admin only
-    Route::get('/upload', [UploadController::class, 'showUploadForm'])->name('domains.uploadForm');
-    Route::post('/upload', [UploadController::class, 'uploadDomains'])->name('domains.upload');
-
-    // Domain management - admin only
-    Route::delete('/domains/', [DomainController::class, 'destroy'])->name('domains.destroy');
-    Route::post('/domains/mark-as-sold', [DomainController::class, 'markAsSold'])->name('domains.markAsSold');
-    Route::get('/domains', [DomainController::class, 'index'])->name('domains.index');
-    Route::post('/domains/filter', [DomainController::class, 'index'])->name('domains.filter');
-    Route::get('/domains/export', [DomainController::class, 'exportCsv'])->name('domains.export');
-
-    // Add new route for registrar filtering
-    Route::get('/domains/registrar/{registrar}', [DomainController::class, 'indexByRegistrar'])
-        ->name('domains.byRegistrar');
-});
-
-// Authenticated user routes (non-admin)
-Route::middleware(['auth'])->group(function () {
-    Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
-    
-    // Add these new routes for payment details
-    Route::get('/dashboard', [UserController::class, 'dashboard'])->name('dashboard');
-    Route::post('/user/payment', [UserController::class, 'updatePaymentDetails'])->name('user.payment.update');
-});
-
-// Public routes
-Route::get('/public', [DomainController::class, 'publicList'])->name('domains.public');
-Route::get('/getquote/{uuid?}', [GetQuoteController::class, 'showForm'])->name('getquote.form');
-Route::post('/getquote', [GetQuoteController::class, 'getQuote'])->name('getquote.process');
-
-// Authentication routes
-Auth::routes(['register' => true]);
-Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 </file>
 
 <file path="resources/views/domains/public.blade.php">
@@ -8597,23 +8957,38 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 @section('content')
 <div class="container">
     <h2>Domains</h2>
-    <a href="{{ route('domains.export') }}" class="btn btn-success mb-3">Export CSV</a>
-    <a href="{{ url('/upload') }}" class="btn btn-primary mb-3">Upload</a>
-    <a href="{{ url('/getquote') }}" class="btn btn-secondary mb-3">Get Quote</a>
-    
-    <div class="d-flex justify-content-between">
-        <div>
-            <p>Total: {{ $total }} domains</p>
-            <p>Active: {{ $active }} domains</p>
-            <p>Sold: {{ $sold }} domains</p>
+    {{-- Top Button Row & Histogram Wrapper --}}
+    <div class="mb-3" style="position: relative;"> {{-- Added position: relative --}}
+        <a href="{{ route('domains.export') }}" class="btn btn-success">Export CSV</a>
+        <a href="{{ url('/upload') }}" class="btn btn-primary">Upload</a>
+        <a href="{{ url('/getquote') }}" class="btn btn-secondary">Get Quote</a>
+        {{-- Moved Histogram Toggle Button Here --}}
+        <button type="button" id="toggle-histogram-link" class="btn btn-outline-info ml-2">Show Expiration Histogram</button> 
+
+        {{-- Histogram Container (Positioned Absolutely, Initially Hidden) --}}
+        <div id="histogram-popup-container" style="display: none; position: absolute; top: 100%; left: 0; width: 600px; max-width: 100%; z-index: 100; background: white; border: 1px solid #ccc; border-radius: 5px; box-shadow: 0 5px 15px rgba(0,0,0,.1); padding: 15px; margin-top: 5px;">
+            {{-- Removed the explicit close button --}}
+            <h4 style="margin: 0; margin-bottom: 10px;">Active Domain Expiration Distribution</h4> 
+            <div id="histogramChart" style="height: 400px;"></div>
         </div>
-        <div>
+        {{-- End Histogram Container --}}
+    </div>
+    {{-- End Top Button Row & Histogram Wrapper --}}
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <p>Total (in view): {{ $total }} domains</p>
+            <p>Total Active: {{ $active }} domains</p>
+            <p>Total Sold: {{ $sold }} domains</p>
+        </div>
+        
+        <div class="col-md-6">
             <h4>Active Domains by Registrar</h4>
             <ul>
                 <li>
                     <a href="{{ route('domains.index') }}" 
                        class="registrar-link {{ !isset($registrar) ? 'fw-bold text-primary' : '' }}">
-                        All Domains: {{ $total }} total
+                        All Domains: {{ $active }} total
                     </a>
                 </li>
                 @foreach($activeDomainsByRegistrar as $reg)
@@ -8628,9 +9003,8 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
         </div>
     </div>
 
-    <!-- Collapsible Textarea and Submit Button -->
     <button class="btn btn-info mb-3" type="button" data-toggle="collapse" data-target="#collapsibleTextarea" aria-expanded="false" aria-controls="collapsibleTextarea">
-        Bulk Mark as Sold
+        Bulk Mark as Sold (by Name)
     </button>
     <div class="collapse" id="collapsibleTextarea">
         <form action="{{ route('domains.markAsSold') }}" method="POST">
@@ -8642,7 +9016,7 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
         </form>
     </div>
 
-    <div class="mb-3 mt-3">
+    <div class="mb-3 mt-3"> {{-- Active/Sold Buttons --}}
         <a href="{{ route('domains.index', ['status' => 'ACTIVE']) }}" class="btn btn-info mr-2">Active</a>
         <a href="{{ route('domains.index', ['status' => 'SOLD']) }}" class="btn btn-secondary">Sold</a>
     </div>
@@ -8656,7 +9030,6 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
         </div>
     @endif
 
-    <!-- Add this form wherever appropriate in the domains.index view -->
     <div class="card mb-4">
         <div class="card-header">
             <h5>Filter by Domain List</h5>
@@ -8681,11 +9054,9 @@ example.org"></textarea>
                 @endif
             </form>
             
-            <!-- Counter to show filtered results -->
             @if(isset($isFiltered) && $isFiltered)
                 <div class="alert alert-info mt-3">
                     @php
-                        // Calculate total price of all filtered domains
                         $totalPrice = $domains->sum('suggested_price');
                     @endphp
                     <strong>Showing {{ $total }} filtered domains.</strong> 
@@ -8753,11 +9124,67 @@ example.org"></textarea>
         document.getElementById('bulk-action-button').style.display = anyChecked ? 'block' : 'none';
     }
 
-    // Prevent the bulk form from submitting when clicking the individual "Mark as Sold" buttons
     document.querySelectorAll('form[action^="{{ route('domains.destroy', '') }}"]').forEach(form => {
         form.addEventListener('submit', function(event) {
             event.stopPropagation();
         });
+    });
+</script>
+
+{{-- Include Plotly always, JS will handle empty data --}}
+<script src='https://cdn.plot.ly/plotly-2.32.0.min.js'></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const histogramContainer = document.getElementById('histogram-container');
+        const toggleLink = document.getElementById('toggle-histogram-link');
+
+        const histogramData = @json($histogramData);
+        
+        console.log('Raw Histogram Data:', histogramData);
+
+        const trace = {
+            x: histogramData.labels,
+            y: histogramData.counts,
+            type: 'bar',
+            marker: {
+                color: histogramData.counts,
+                colorscale: 'Viridis'
+            }
+        };
+        
+        const layout = {
+            title: 'Domain Expiration Buckets (Active)',
+            xaxis: { 
+                title: 'Days Until Expiration', 
+                tickangle: -45
+            },
+            yaxis: { title: 'Number of Domains' },
+            margin: { l: 50, r: 20, b: 100, t: 50 }
+        };
+        
+        if (histogramData && histogramData.labels && histogramData.labels.length > 0) {
+            Plotly.newPlot('histogramChart', [trace], layout, {responsive: true});
+            console.log('2D Bar Chart rendered.');
+        } else {
+            console.log('No histogram data to render.');
+            document.getElementById('histogramChart').innerHTML = '<p class="text-muted">Histogram data is only available for Active domains.</p>';
+            toggleLink.disabled = true;
+            toggleLink.textContent = 'Histogram N/A';
+            toggleLink.classList.add('disabled');
+        }
+
+        const histogramPopupContainer = document.getElementById('histogram-popup-container');
+        
+        if (toggleLink && histogramPopupContainer) {
+            toggleLink.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default link behavior
+                const isHidden = histogramPopupContainer.style.display === 'none';
+                histogramPopupContainer.style.display = isHidden ? 'block' : 'none';
+                this.textContent = isHidden ? 'Hide Expiration Histogram' : 'Show Expiration Histogram';
+                console.log('Histogram visibility toggled.');
+            });
+        }
     });
 </script>
 
