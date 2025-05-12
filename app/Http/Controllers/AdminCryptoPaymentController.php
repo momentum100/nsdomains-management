@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Config;
 
 class AdminCryptoPaymentController extends Controller
 {
@@ -14,7 +15,8 @@ class AdminCryptoPaymentController extends Controller
         $result = session('crypto_check_result');
         $log = session('crypto_check_log');
         $counter = session('crypto_check_counter', 0);
-        return view('admin.crypto-payment-check', compact('result', 'log', 'counter'));
+        $humanSummary = session('crypto_check_human_summary');
+        return view('admin.crypto-payment-check', compact('result', 'log', 'counter', 'humanSummary'));
     }
 
     // ELI15: Handle the form, call the API, log everything, and show prettified JSON
@@ -76,12 +78,60 @@ class AdminCryptoPaymentController extends Controller
             $pretty .= "\nCURL ERROR: $error";
         }
 
+        // ELI15: Human summary logic
+        $humanSummary = '';
+        $data = json_decode($response, true);
+        $myWallets = Config::get('mywallets');
+        $emoji = '';
+        $matchedWallet = null;
+        if (isset($data['data']['blockchain'])) {
+            $blockchain = $data['data']['blockchain'];
+            $wallets = $myWallets[$blockchain] ?? [];
+            if ($blockchain === 'BITCOIN') {
+                // Look for the special address in all_outputs
+                $target = $wallets[0] ?? 'bc1q26e3zj4yt7u8agju2ajy0z9ljxvhgzlppjgavh';
+                $found = null;
+                if (isset($data['data']['all_outputs']) && is_array($data['data']['all_outputs'])) {
+                    foreach ($data['data']['all_outputs'] as $output) {
+                        if (isset($output['address']) && in_array($output['address'], $wallets)) {
+                            $found = $output;
+                            $matchedWallet = $output['address'];
+                            $emoji = '✅';
+                            break;
+                        }
+                    }
+                }
+                if ($found) {
+                    $humanSummary = "To <b>{$found['address']}</b>: <b>{$found['amount_btc']} BTC</b> ({$found['amount_usd']} USD) $emoji<br>Token: <b>Bitcoin (BTC)</b>";
+                } else {
+                    $humanSummary = "No output found for your wallets in this transaction.";
+                }
+            } else {
+                // Other blockchains: from → to, token, amount
+                $from = $data['data']['from_address'] ?? '';
+                $to = $data['data']['to_address'] ?? '';
+                // Check if to_address is one of my wallets
+                if (in_array($to, $wallets)) {
+                    $emoji = '✅';
+                    $matchedWallet = $to;
+                }
+                $tokenName = $data['data']['token_name'] ?? '';
+                $tokenSymbol = $data['data']['token_symbol'] ?? '';
+                $amount = $data['data']['amount_transferred'] ?? '';
+                $humanSummary = "<b>$from</b> → <b>$to</b> $emoji<br>Token: <b>$tokenName ($tokenSymbol)</b><br>Amount: <b>$amount</b>";
+            }
+        } else {
+            $humanSummary = 'No blockchain data found.';
+        }
+        Log::info('AdminCryptoPaymentCheckHumanSummary', ['summary' => $humanSummary, 'matched_wallet' => $matchedWallet]);
+
         // ELI15: Count how many checks in this session
         $counter = session('crypto_check_counter', 0) + 1;
         session([
             'crypto_check_result' => $pretty,
             'crypto_check_log' => $log,
             'crypto_check_counter' => $counter,
+            'crypto_check_human_summary' => $humanSummary,
         ]);
 
         return redirect()->route('admin.crypto-payment-check')->withInput();

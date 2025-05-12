@@ -23,6 +23,14 @@
         <strong>Checks this session:</strong> {{ $counter ?? 0 }}
     </div>
 
+    @if(isset($humanSummary) && $humanSummary)
+        <!-- ELI15: Human-readable summary of the transaction for quick understanding -->
+        <div class="alert alert-success mt-3">
+            <strong>Summary:</strong><br>
+            {!! $humanSummary !!}
+        </div>
+    @endif
+
     @if(isset($result))
         <h4>API Result (Prettified JSON)</h4>
         <pre style="background:#222;color:#b5f;font-size:1em;padding:1em;border-radius:8px;">{{ $result }}</pre>
